@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat with Groundedness Evaluator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style_simple_history.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Chat with Groundedness Evaluator</h1>
+            <div class="header-actions">
+                <button id="export-btn" class="btn-secondary">
+                    <span class="icon">💾</span> Export History
+                </button>
+            </div>
+        </header>
+        
+        <div class="panels">
+            <!-- Chat Panel -->
+            <div class="panel chat-panel">
+                <div class="panel-header">
+                    <h2>Chat Interface</h2>
+                </div>
+                
+                <div class="panel-content">
+                    <div class="pdf-upload">
+                        <input type="file" id="pdf-upload" accept=".pdf">
+                        <button id="upload-btn">Upload PDF</button>
+                        <div id="upload-status"></div>
+                    </div>
+                    
+                    <div class="chat-messages" id="chat-messages"></div>
+                    
+                    <div class="chat-input">
+                        <textarea id="user-input" placeholder="Ask a question about the PDF..."></textarea>
+                        <button id="send-btn">Send</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Evaluation Panel -->
+            <div class="panel eval-panel">
+                <div class="panel-header">
+                    <h2>Evaluation History</h2>
+                    <span class="eval-count" id="eval-count">0 evaluations</span>
+                </div>
+                
+                <div class="panel-content">
+                    <!-- Current Evaluation Section -->
+                    <div class="current-evaluation-section">
+                        <h3 class="section-title">Current Evaluation</h3>
+                        <div id="current-evaluation">
+                            <div class="eval-placeholder">
+                                Send a message to see the evaluation
+                            </div>
+                        </div>
+                        <button id="improve-btn" class="improve-btn" style="display: none;">
+                            <span class="icon">✨</span> Improve Response
+                        </button>
+                    </div>
+                    
+                    <!-- Divider -->
+                    <div class="section-divider"></div>
+                    
+                    <!-- Evaluation History Section -->
+                    <div class="evaluation-history-section">
+                        <h3 class="section-title">Session History</h3>
+                        <div id="evaluation-history-list">
+                            <div class="history-placeholder">
+                                No previous evaluations in this session
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Export Modal -->
+    <div id="export-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Export Evaluation History</h3>
+            <div class="export-options">
+                <label>
+                    <input type="radio" name="export-format" value="json" checked>
+                    JSON Format
+                </label>
+                <label>
+                    <input type="radio" name="export-format" value="csv">
+                    CSV Format
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button id="confirm-export" class="btn-primary">Export</button>
+                <button id="cancel-export" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script_simple_history.js') }}"></script>
+</body>
+</html>

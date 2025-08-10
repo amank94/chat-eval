@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat with Groundedness Evaluator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style_with_history.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Chat with Groundedness Evaluator</h1>
+            <div class="header-actions">
+                <button id="history-toggle" class="btn-secondary">
+                    <span class="icon">📊</span> History
+                </button>
+                <button id="export-btn" class="btn-secondary">
+                    <span class="icon">💾</span> Export
+                </button>
+            </div>
+        </header>
+        
+        <div class="panels">
+            <div class="panel chat-panel">
+                <div class="panel-header">
+                    <h2>Chat Interface</h2>
+                </div>
+                
+                <div class="panel-content">
+                    <div class="pdf-upload">
+                        <input type="file" id="pdf-upload" accept=".pdf">
+                        <button id="upload-btn">Upload PDF</button>
+                        <div id="upload-status"></div>
+                    </div>
+                    
+                    <div class="chat-messages" id="chat-messages"></div>
+                    
+                    <div class="chat-input">
+                        <textarea id="user-input" placeholder="Ask a question about the PDF..."></textarea>
+                        <button id="send-btn">Send</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel eval-panel">
+                <div class="panel-header">
+                    <h2>Evaluation Panel</h2>
+                    <div class="panel-tabs">
+                        <button class="tab-btn active" data-tab="current">Current</button>
+                        <button class="tab-btn" data-tab="history">History</button>
+                        <button class="tab-btn" data-tab="stats">Stats</button>
+                    </div>
+                </div>
+                
+                <div class="panel-content">
+                    <!-- Current Evaluation Tab -->
+                    <div id="current-tab" class="tab-content active">
+                        <div id="evaluation-display">
+                            <div class="eval-placeholder">
+                                Send a message to see the evaluation
+                            </div>
+                        </div>
+                        <button id="improve-btn" style="display: none;">Improve Response</button>
+                    </div>
+                    
+                    <!-- History Tab -->
+                    <div id="history-tab" class="tab-content" style="display: none;">
+                        <div class="history-filters">
+                            <input type="text" id="search-input" placeholder="Search questions...">
+                            <select id="groundedness-filter">
+                                <option value="">All Levels</option>
+                                <option value="Grounded">Grounded</option>
+                                <option value="Partially Grounded">Partially Grounded</option>
+                                <option value="Not Grounded">Not Grounded</option>
+                            </select>
+                            <button id="apply-filters" class="btn-secondary">Apply</button>
+                        </div>
+                        
+                        <div id="history-list" class="history-list">
+                            <!-- History items will be loaded here -->
+                        </div>
+                        
+                        <div class="history-pagination">
+                            <button id="prev-page" class="btn-secondary">Previous</button>
+                            <span id="page-info">Page 1</span>
+                            <button id="next-page" class="btn-secondary">Next</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Stats Tab -->
+                    <div id="stats-tab" class="tab-content" style="display: none;">
+                        <div class="stats-container">
+                            <div class="stat-card">
+                                <div class="stat-value" id="total-evaluations">0</div>
+                                <div class="stat-label">Total Evaluations</div>
+                            </div>
+                            
+                            <div class="stat-card grounded">
+                                <div class="stat-value" id="grounded-count">0</div>
+                                <div class="stat-label">Grounded</div>
+                            </div>
+                            
+                            <div class="stat-card partially">
+                                <div class="stat-value" id="partially-count">0</div>
+                                <div class="stat-label">Partially Grounded</div>
+                            </div>
+                            
+                            <div class="stat-card not-grounded">
+                                <div class="stat-value" id="not-grounded-count">0</div>
+                                <div class="stat-label">Not Grounded</div>
+                            </div>
+                            
+                            <div class="stat-card improvement">
+                                <div class="stat-value" id="improvement-rate">0%</div>
+                                <div class="stat-label">Improvement Rate</div>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <canvas id="groundedness-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Export Modal -->
+    <div id="export-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3>Export Evaluation History</h3>
+            <div class="export-options">
+                <label>
+                    <input type="radio" name="export-format" value="json" checked>
+                    JSON Format
+                </label>
+                <label>
+                    <input type="radio" name="export-format" value="csv">
+                    CSV Format
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button id="confirm-export" class="btn-primary">Export</button>
+                <button id="cancel-export" class="btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='script_with_history.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+databases:
+  - name: chateval-db
+    databaseName: chateval
+    user: chateval
+    plan: free
+
+services:
+  - type: web
+    name: chat-eval
+    runtime: python
+    buildCommand: "chmod +x build.sh && ./build.sh"
+    startCommand: "gunicorn app:app --config gunicorn.conf.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: chateval-db
+          property: connectionString
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+    healthCheckPath: /health
+    autoDeploy: true

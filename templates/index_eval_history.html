@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat with Groundedness Evaluator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style_eval_history.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Chat with Groundedness Evaluator</h1>
+        </header>
+        
+        <div class="panels">
+            <div class="panel chat-panel">
+                <div class="panel-header">
+                    <h2>Chat</h2>
+                </div>
+                
+                <div class="panel-content">
+                    <div class="pdf-upload">
+                        <input type="file" id="pdf-upload" accept=".pdf">
+                        <button id="upload-btn">Upload PDF</button>
+                        <div id="upload-status"></div>
+                    </div>
+                    
+                    <div class="chat-messages" id="chat-messages"></div>
+                    
+                    <div class="chat-input">
+                        <textarea id="user-input" placeholder="Ask a question about the PDF..."></textarea>
+                        <button id="send-btn">Send</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel eval-panel">
+                <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2>Evaluation History</h2>
+                    <button id="clear-history-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="clearEvaluationHistory()">Clear History</button>
+                </div>
+                
+                <div class="panel-content">
+                    <div id="evaluation-display" class="flex-1 overflow-y-auto">
+                        <div id="evaluation-history" class="p-4 space-y-3">
+                            <div id="eval-placeholder" class="text-center text-gray-500 py-8">
+                                Send a message to see evaluations
+                            </div>
+                        </div>
+                    </div>
+                    <button id="improve-btn" style="display: none;">Improve Response</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script_with_eval_history.js') }}"></script>
+</body>
+</html>

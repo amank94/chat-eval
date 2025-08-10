@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat with Groundedness Evaluator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in',
+                        'slide-up': 'slideUp 0.3s ease-out',
+                        'pulse-dot': 'pulseDot 1.4s ease-in-out infinite'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <!-- Header -->
+    <header class="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-robot text-2xl text-blue-600 dark:text-blue-400 mr-3"></i>
+                    <h1 class="text-xl font-semibold text-gray-900 dark:text-white">AI Chat with Groundedness Evaluator</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <!-- Dark Mode Toggle -->
+                    <button id="dark-mode-toggle" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-moon text-gray-600 dark:text-gray-400"></i>
+                    </button>
+                    <!-- Settings Button -->
+                    <button id="settings-btn" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-cog text-gray-600 dark:text-gray-400"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="flex h-[calc(100vh-4rem)]">
+        <!-- Chat Panel -->
+        <div id="chat-panel" class="flex-1 flex flex-col bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 relative">
+            <!-- Panel Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                    <i class="fas fa-comments mr-2 text-blue-600 dark:text-blue-400"></i>
+                    Chat
+                </h2>
+                <div class="flex items-center space-x-2">
+                    <button id="fullscreen-chat" class="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-expand text-gray-600 dark:text-gray-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- PDF Upload Area -->
+            <div class="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-600">
+                <div class="flex items-center space-x-3">
+                    <label for="pdf-upload" class="flex items-center px-4 py-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-file-pdf mr-2 text-red-500"></i>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Choose PDF</span>
+                        <input type="file" id="pdf-upload" accept=".pdf" class="hidden">
+                    </label>
+                    <span id="file-name" class="text-sm text-gray-600 dark:text-gray-400 hidden"></span>
+                    <button id="upload-btn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <i class="fas fa-upload mr-2"></i>
+                        Upload
+                    </button>
+                    <div id="upload-status" class="flex-1 text-sm text-gray-600 dark:text-gray-300"></div>
+                </div>
+            </div>
+
+            <!-- Chat Messages Area -->
+            <div id="chat-messages" class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                <!-- Welcome Message -->
+                <div class="flex justify-center py-8">
+                    <div class="text-center max-w-md">
+                        <div class="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-robot text-white text-2xl"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Welcome to AI Chat</h3>
+                        <p class="text-gray-600 dark:text-gray-400 text-sm">Upload a PDF document and start asking questions. I'll evaluate the groundedness of my responses.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typing Indicator -->
+            <div id="typing-indicator" class="hidden px-6 py-2">
+                <div class="flex items-center space-x-2">
+                    <div class="flex space-x-1">
+                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse-dot"></div>
+                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse-dot" style="animation-delay: 0.2s"></div>
+                        <div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse-dot" style="animation-delay: 0.4s"></div>
+                    </div>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">AI is thinking...</span>
+                </div>
+            </div>
+
+            <!-- Chat Input Area -->
+            <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
+                <div class="flex space-x-4">
+                    <div class="flex-1 relative">
+                        <textarea 
+                            id="user-input" 
+                            placeholder="Ask a question about the PDF..."
+                            class="w-full px-4 py-3 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                            rows="2"
+                        ></textarea>
+                    </div>
+                    <button 
+                        id="send-btn" 
+                        class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resizable Divider -->
+        <div id="panel-divider" class="w-1 bg-gray-200 dark:bg-gray-700 hover:bg-blue-400 dark:hover:bg-blue-600 cursor-col-resize transition-colors"></div>
+
+        <!-- Evaluation Panel -->
+        <div id="eval-panel" class="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 relative">
+            <!-- Panel Header -->
+            <div class="flex items-center justify-between px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                    <i class="fas fa-chart-line mr-2 text-green-600 dark:text-green-400"></i>
+                    Evaluation
+                </h2>
+                <div class="flex items-center space-x-2">
+                    <button id="collapse-eval" class="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-chevron-right text-gray-600 dark:text-gray-400"></i>
+                    </button>
+                    <button id="fullscreen-eval" class="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-expand text-gray-600 dark:text-gray-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabs for Evaluation and Prompt Editor -->
+            <div class="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <button id="eval-tab" class="px-6 py-3 text-sm font-medium text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400">
+                    <i class="fas fa-chart-bar mr-2"></i>
+                    Evaluation
+                </button>
+                <button id="prompt-tab" class="px-6 py-3 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                    <i class="fas fa-edit mr-2"></i>
+                    Prompt Editor
+                </button>
+                <button id="templates-btn" class="ml-auto px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                    <i class="fas fa-folder-open mr-2"></i>
+                    Templates
+                </button>
+            </div>
+
+            <!-- Evaluation Display Area -->
+            <div id="evaluation-display" class="flex-1 overflow-y-auto">
+                <!-- Evaluation History List -->
+                <div id="evaluation-history" class="p-4 space-y-3">
+                    <!-- Placeholder -->
+                    <div id="eval-placeholder" class="flex items-center justify-center py-8">
+                        <div class="text-center">
+                            <div class="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-chart-bar text-gray-400 dark:text-gray-500 text-2xl"></i>
+                            </div>
+                            <p class="text-gray-500 dark:text-gray-400">Send a message to see evaluations</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prompt Editor Area -->
+            <div id="prompt-editor" class="hidden flex-1 overflow-y-auto">
+                <div class="p-6">
+                    <!-- Prompt Templates Dropdown -->
+                    <div id="templates-dropdown" class="hidden absolute right-6 top-16 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                        <div class="p-2">
+                            <button class="template-btn w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded" data-template="groundedness">
+                                <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                                Groundedness (Default)
+                            </button>
+                            <button class="template-btn w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded" data-template="factual">
+                                <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                                Factual Accuracy
+                            </button>
+                            <button class="template-btn w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded" data-template="completeness">
+                                <i class="fas fa-tasks text-purple-500 mr-2"></i>
+                                Completeness
+                            </button>
+                            <button class="template-btn w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded" data-template="relevance">
+                                <i class="fas fa-bullseye text-orange-500 mr-2"></i>
+                                Relevance
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Editor Header -->
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                            <i class="fas fa-code mr-2 text-blue-600 dark:text-blue-400"></i>
+                            Evaluation Prompt
+                        </h3>
+                        <div class="flex items-center space-x-2">
+                            <button id="save-prompt" class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">
+                                <i class="fas fa-save mr-1"></i>
+                                Save
+                            </button>
+                            <button id="reset-prompt" class="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
+                                <i class="fas fa-undo mr-1"></i>
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Code Editor -->
+                    <div class="relative">
+                        <textarea 
+                            id="prompt-textarea" 
+                            class="w-full h-96 p-4 font-mono text-sm bg-gray-900 text-gray-100 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter your evaluation prompt here..."
+                        ></textarea>
+                        <div class="absolute top-2 right-2 text-xs text-gray-500">
+                            <span id="char-count">0</span> characters
+                        </div>
+                    </div>
+
+                    <!-- Prompt Variables Info -->
+                    <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <h4 class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Available Variables
+                        </h4>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="flex items-center">
+                                <code class="bg-white dark:bg-gray-800 px-2 py-1 rounded mr-2">{document_content}</code>
+                                <span class="text-gray-600 dark:text-gray-400">PDF content</span>
+                            </div>
+                            <div class="flex items-center">
+                                <code class="bg-white dark:bg-gray-800 px-2 py-1 rounded mr-2">{question}</code>
+                                <span class="text-gray-600 dark:text-gray-400">User's question</span>
+                            </div>
+                            <div class="flex items-center">
+                                <code class="bg-white dark:bg-gray-800 px-2 py-1 rounded mr-2">{response}</code>
+                                <span class="text-gray-600 dark:text-gray-400">AI's response</span>
+                            </div>
+                            <div class="flex items-center">
+                                <code class="bg-white dark:bg-gray-800 px-2 py-1 rounded mr-2">{timestamp}</code>
+                                <span class="text-gray-600 dark:text-gray-400">Current time</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Version History -->
+                    <div class="mt-4">
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                            <i class="fas fa-history mr-1"></i>
+                            Version History
+                        </h4>
+                        <div id="version-history" class="space-y-2 max-h-32 overflow-y-auto">
+                            <!-- Version history items will be added here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Improve Button Area -->
+            <div class="px-6 py-4 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                <button 
+                    id="improve-btn" 
+                    class="hidden w-full px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all shadow-sm hover:shadow-md"
+                >
+                    <i class="fas fa-magic mr-2"></i>
+                    Improve Response
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

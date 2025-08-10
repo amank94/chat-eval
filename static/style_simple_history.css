@@ -1,0 +1,495 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: #f5f5f5;
+    color: #333;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+header {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+h1 {
+    font-size: 24px;
+    color: #2c3e50;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.btn-secondary {
+    background: #ecf0f1;
+    color: #34495e;
+}
+
+.btn-secondary:hover {
+    background: #bdc3c7;
+}
+
+.panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    height: calc(100vh - 180px);
+}
+
+.panel {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.panel-header {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+    padding: 20px;
+    border-bottom: 2px solid #ecf0f1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.panel-header h2 {
+    font-size: 18px;
+    color: #34495e;
+}
+
+.eval-count {
+    font-size: 14px;
+    color: #7f8c8d;
+    background: #ecf0f1;
+    padding: 4px 12px;
+    border-radius: 12px;
+}
+
+.panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Chat Panel Styles */
+.pdf-upload {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.pdf-upload input[type="file"] {
+    margin-right: 10px;
+}
+
+.pdf-upload button {
+    padding: 8px 16px;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.pdf-upload button:hover {
+    background: #2980b9;
+}
+
+#upload-status {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #7f8c8d;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #ecf0f1;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: #fafafa;
+}
+
+.message {
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+.message.user {
+    background: #e3f2fd;
+    margin-left: 20%;
+}
+
+.message.assistant {
+    background: #f5f5f5;
+    margin-right: 20%;
+}
+
+.message-label {
+    font-weight: bold;
+    font-size: 12px;
+    color: #7f8c8d;
+    margin-bottom: 5px;
+}
+
+.chat-input {
+    display: flex;
+    gap: 10px;
+}
+
+#user-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    resize: vertical;
+    min-height: 60px;
+    font-family: inherit;
+}
+
+#send-btn {
+    padding: 10px 20px;
+    background: #27ae60;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    align-self: flex-end;
+}
+
+#send-btn:hover {
+    background: #229954;
+}
+
+#send-btn:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+}
+
+/* Evaluation Panel Styles */
+.section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 15px;
+}
+
+.current-evaluation-section {
+    margin-bottom: 20px;
+}
+
+#current-evaluation {
+    background: #fafafa;
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 15px;
+    min-height: 120px;
+}
+
+.eval-placeholder, .history-placeholder {
+    color: #95a5a6;
+    text-align: center;
+    padding: 20px;
+    font-style: italic;
+}
+
+.evaluation-result {
+    background: white;
+    padding: 15px;
+    border-radius: 4px;
+    border-left: 4px solid #3498db;
+}
+
+.eval-label {
+    font-weight: bold;
+    font-size: 16px;
+    margin-bottom: 10px;
+    color: #2c3e50;
+}
+
+.eval-label.grounded {
+    color: #27ae60;
+}
+
+.eval-label.partially {
+    color: #f39c12;
+}
+
+.eval-label.not-grounded {
+    color: #e74c3c;
+}
+
+.eval-explanation {
+    line-height: 1.6;
+    color: #555;
+}
+
+.improve-btn {
+    width: 100%;
+    padding: 12px;
+    background: #9b59b6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.improve-btn:hover {
+    background: #8e44ad;
+}
+
+.improve-btn:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+}
+
+.section-divider {
+    height: 1px;
+    background: #ecf0f1;
+    margin: 25px 0;
+}
+
+/* Evaluation History List */
+.evaluation-history-section {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+#evaluation-history-list {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.eval-history-item {
+    background: white;
+    border: 1px solid #ecf0f1;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.eval-history-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+}
+
+.eval-history-item.active {
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.eval-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.eval-history-number {
+    font-size: 12px;
+    font-weight: 600;
+    color: #7f8c8d;
+}
+
+.eval-history-timestamp {
+    font-size: 11px;
+    color: #95a5a6;
+}
+
+.eval-history-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+}
+
+.eval-history-badge.grounded {
+    background: #d4edda;
+    color: #155724;
+}
+
+.eval-history-badge.partially {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.eval-history-badge.not-grounded {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.eval-history-question {
+    font-size: 13px;
+    font-weight: 500;
+    color: #2c3e50;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.eval-history-preview {
+    font-size: 12px;
+    color: #7f8c8d;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Improved Indicator */
+.improved-indicator {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    color: #9b59b6;
+    margin-left: 8px;
+}
+
+.improved-indicator .icon {
+    margin-right: 3px;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    max-width: 400px;
+    width: 90%;
+}
+
+.modal-content h3 {
+    margin-bottom: 20px;
+    color: #2c3e50;
+}
+
+.export-options {
+    margin-bottom: 20px;
+}
+
+.export-options label {
+    display: block;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.btn-primary {
+    background: #3498db;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    background: #2980b9;
+}
+
+/* Loading and icons */
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.icon {
+    margin-right: 5px;
+}
+
+/* Scrollbar styling */
+#evaluation-history-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+#evaluation-history-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+#evaluation-history-list::-webkit-scrollbar-thumb {
+    background: #bdc3c7;
+    border-radius: 3px;
+}
+
+#evaluation-history-list::-webkit-scrollbar-thumb:hover {
+    background: #95a5a6;
+}
