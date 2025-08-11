@@ -40,9 +40,33 @@ except:
     redis_client = None
     print("Redis not available, using in-memory storage")
 
-# PDF storage - use temp files to avoid session size limits
-# Dictionary to store PDF content with session-based keys
+# PDF storage - use Redis if available, otherwise in-memory
+# This ensures it works on Render with multiple workers
 pdf_storage = {}
+
+def store_pdf(session_id, content):
+    """Store PDF content using Redis if available, otherwise in-memory"""
+    if redis_client:
+        try:
+            redis_client.setex(f"pdf:{session_id}", 3600, content)  # Expire after 1 hour
+            return True
+        except:
+            pass
+    # Fallback to in-memory storage
+    pdf_storage[session_id] = content
+    return True
+
+def get_pdf(session_id):
+    """Get PDF content from Redis if available, otherwise from in-memory"""
+    if redis_client:
+        try:
+            content = redis_client.get(f"pdf:{session_id}")
+            if content:
+                return content.decode('utf-8') if isinstance(content, bytes) else content
+        except:
+            pass
+    # Fallback to in-memory storage
+    return pdf_storage.get(session_id, '')
 
 # Database Models (for future use)
 class ChatSession(db.Model):
@@ -174,9 +198,10 @@ def chat():
         except Exception as e:
             return jsonify({'error': f'Invalid API key: {str(e)}'}), 401
         
-        # Get PDF content from in-memory storage using session ID
+        # Get PDF content from storage using session ID
         session_id = session.get('session_id', '')
-        pdf_content = pdf_storage.get(session_id, '')
+        pdf_content = get_pdf(session_id)
+        print(f"DEBUG CHAT: Session ID: {session_id}, PDF content length: {len(pdf_content)}")
         
         messages = []
         if pdf_content:
@@ -300,15 +325,16 @@ Explanation: [your explanation]"""
         
         # Add to session history if there's an evaluation (with size limit)
         if evaluation and 'evaluation_history' in session:
-            # Limit session history to prevent cookie overflow
-            if len(session['evaluation_history']) >= 10:
-                session['evaluation_history'] = session['evaluation_history'][-5:]  # Keep only last 5
+            # Limit session history to prevent cookie overflow - keep only last 3
+            if len(session['evaluation_history']) >= 3:
+                session['evaluation_history'] = session['evaluation_history'][-2:]  # Keep only last 2
             
+            # Store minimal data in session to avoid cookie size issues
             session['evaluation_history'].append({
                 'id': len(session['evaluation_history']) + 1,
-                'question': user_message,
-                'response': ai_response,
-                'evaluation': evaluation,
+                'question': user_message[:100],  # Truncate question
+                'response': ai_response[:200],  # Truncate response  
+                'evaluation': evaluation[:200],  # Truncate evaluation
                 'timestamp': datetime.now().isoformat()
             })
             session.modified = True
@@ -342,10 +368,13 @@ def upload_pdf():
         for page in reader.pages:
             text += page.extract_text() + "\n"
         
-        # Store PDF content in memory storage instead of session (to avoid cookie size limits)
+        # Store PDF content using Redis/memory storage instead of session (to avoid cookie size limits)
         session_id = session.get('session_id', '')
         if session_id:
-            pdf_storage[session_id] = text[:10000]
+            store_pdf(session_id, text[:10000])
+            print(f"DEBUG UPLOAD: Stored PDF for session {session_id}, length: {len(text[:10000])}")
+        else:
+            print(f"DEBUG UPLOAD: No session ID found!")
         session.modified = True
         
         return jsonify({
@@ -386,9 +415,9 @@ def improve_response():
         except Exception as e:
             return jsonify({'error': f'Invalid API key: {str(e)}'}), 401
         
-        # Get PDF content from in-memory storage using session ID
+        # Get PDF content from storage using session ID
         session_id = session.get('session_id', '')
-        pdf_content = pdf_storage.get(session_id, '')
+        pdf_content = get_pdf(session_id)
         
         # Build improvement prompt based on all evaluations
         if combined_evaluation and len(combined_evaluation) > 0:
@@ -503,11 +532,15 @@ Please provide an improved, well-formatted response:"""
         
         # Add improved evaluation to session history
         if new_evaluation and 'evaluation_history' in session:
+            # Limit history size
+            if len(session['evaluation_history']) >= 3:
+                session['evaluation_history'] = session['evaluation_history'][-2:]
+                
             session['evaluation_history'].append({
                 'id': len(session['evaluation_history']) + 1,
-                'question': original_question,
-                'response': improved_response,
-                'evaluation': new_evaluation,
+                'question': original_question[:100],
+                'response': improved_response[:200],
+                'evaluation': new_evaluation[:200],
                 'timestamp': datetime.now().isoformat(),
                 'is_improved': True
             })
