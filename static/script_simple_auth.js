@@ -1,6 +1,7 @@
 let currentQuestion = '';
 let currentResponse = '';
 let currentEvaluation = '';
+let currentCombinedEvaluation = null;
 let pdfUploaded = false;
 let isDarkMode = false;
 let isResizing = false;
@@ -489,6 +490,7 @@ Explanation: [your explanation]`;
                 
                 if (data.evaluation || data.combined_evaluation) {
                     currentEvaluation = data.evaluation;
+                    currentCombinedEvaluation = data.combined_evaluation;
                     if (data.combined_evaluation && data.combined_evaluation.length > 0) {
                         displayMultipleEvaluations(data.combined_evaluation);
                     } else if (data.evaluation) {
@@ -540,6 +542,7 @@ Explanation: [your explanation]`;
                     question: currentQuestion,
                     response: currentResponse,
                     evaluation: currentEvaluation,
+                    combined_evaluation: currentCombinedEvaluation,
                     api_key: apiKey,
                     evaluation_criteria: evaluationCriteria
                 })
@@ -557,6 +560,7 @@ Explanation: [your explanation]`;
                 
                 if (data.evaluation || data.combined_evaluation) {
                     currentEvaluation = data.evaluation;
+                    currentCombinedEvaluation = data.combined_evaluation;
                     if (data.combined_evaluation && data.combined_evaluation.length > 0) {
                         displayMultipleEvaluations(data.combined_evaluation);
                     } else if (data.evaluation) {
@@ -953,6 +957,7 @@ Explanation: [your explanation]`;
         currentQuestion = item.question;
         currentResponse = item.response;
         currentEvaluation = item.evaluation;
+        currentCombinedEvaluation = item.combinedEvaluation;
         
         // Get current evaluation criteria
         const evaluationCriteria = getSelectedEvaluationCriteria();

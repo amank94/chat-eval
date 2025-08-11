@@ -38,8 +38,7 @@ except:
     redis_client = None
     print("Redis not available, using in-memory storage")
 
-# Store PDF content in session
-pdf_content = ""
+# PDF content will be stored in user sessions instead of global variable
 
 # Database Models (for future use)
 class ChatSession(db.Model):
@@ -147,8 +146,6 @@ def health_check():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    global pdf_content
-    
     try:
         data = request.json
         user_message = data.get('message', '')
@@ -164,6 +161,9 @@ def chat():
             client = anthropic.Anthropic(api_key=api_key)
         except Exception as e:
             return jsonify({'error': f'Invalid API key: {str(e)}'}), 401
+        
+        # Get PDF content from session
+        pdf_content = session.get('pdf_content', '')
         
         messages = []
         if pdf_content:
@@ -314,8 +314,6 @@ Explanation: [your explanation]"""
 
 @app.route('/upload_pdf', methods=['POST'])
 def upload_pdf():
-    global pdf_content
-    
     try:
         data = request.json
         pdf_data = data.get('pdf_data', '')
@@ -331,7 +329,9 @@ def upload_pdf():
         for page in reader.pages:
             text += page.extract_text() + "\n"
         
-        pdf_content = text[:10000]
+        # Store PDF content in session instead of global variable
+        session['pdf_content'] = text[:10000]
+        session.modified = True
         
         return jsonify({
             'success': True,
@@ -352,8 +352,6 @@ def clear_history():
 
 @app.route('/improve', methods=['POST'])
 def improve_response():
-    global pdf_content
-    
     try:
         data = request.json
         original_question = data.get('question', '')
@@ -372,6 +370,9 @@ def improve_response():
             client = anthropic.Anthropic(api_key=api_key)
         except Exception as e:
             return jsonify({'error': f'Invalid API key: {str(e)}'}), 401
+        
+        # Get PDF content from session
+        pdf_content = session.get('pdf_content', '')
         
         # Build improvement prompt based on all evaluations
         if combined_evaluation and len(combined_evaluation) > 0:
