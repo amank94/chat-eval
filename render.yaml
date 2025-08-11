@@ -25,3 +25,4 @@ services:
         generateValue: true
     healthCheckPath: /health
     autoDeploy: true
+    # Updated: 2025-08-11 - Force redeploy with latest UI changes

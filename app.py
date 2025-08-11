@@ -140,7 +140,8 @@ def health_check():
         'status': 'healthy',
         'database': db_status,
         'redis': redis_status,
-        'timestamp': datetime.utcnow().isoformat()
+        'timestamp': datetime.utcnow().isoformat(),
+        'version': '2.1.0'  # Force Render redeploy
     })
 
 @app.route('/chat', methods=['POST'])
