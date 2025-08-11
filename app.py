@@ -283,8 +283,12 @@ Explanation: [your explanation]"""
             )
             evaluation = eval_response.content[0].text
         
-        # Add to session history if there's an evaluation
+        # Add to session history if there's an evaluation (with size limit)
         if evaluation and 'evaluation_history' in session:
+            # Limit session history to prevent cookie overflow
+            if len(session['evaluation_history']) >= 10:
+                session['evaluation_history'] = session['evaluation_history'][-5:]  # Keep only last 5
+            
             session['evaluation_history'].append({
                 'id': len(session['evaluation_history']) + 1,
                 'question': user_message,

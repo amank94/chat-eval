@@ -495,6 +495,11 @@ Explanation: [your explanation]`;
                         displaySingleEvaluation(data.evaluation);
                     }
                     
+                    // Show improve button immediately when evaluation is received
+                    if (improveBtn) {
+                        improveBtn.classList.remove('hidden');
+                    }
+                    
                     // Add to evaluation history
                     addToEvaluationHistory(
                         currentQuestion, 
@@ -502,8 +507,6 @@ Explanation: [your explanation]`;
                         data.evaluation,
                         data.combined_evaluation
                     );
-                    
-                    improveBtn.classList.remove('hidden');
                 }
             }
         } catch (error) {
@@ -785,64 +788,17 @@ Explanation: [your explanation]`;
     }
     
     function displayMultipleEvaluations(evaluations) {
-        let content = '<div class="space-y-4">';
-        
-        evaluations.forEach((evalItem, index) => {
-            const { label, explanation } = parseEvaluationText(evalItem.evaluation);
-            const { iconClass, labelColor, bgColor } = getEvaluationStyling(label, evalItem.type);
-            
-            const criterionTitle = evalItem.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-            
-            content += `
-                <div class="eval-card p-4 rounded-lg border border-gray-200 dark:border-gray-700 ${bgColor}">
-                    <div class="flex items-center mb-3">
-                        <i class="fas ${iconClass} text-xl mr-3"></i>
-                        <div>
-                            <h4 class="text-sm font-medium text-gray-600 dark:text-gray-400">${criterionTitle}</h4>
-                            <h3 class="text-lg font-semibold ${labelColor}">${label}</h3>
-                        </div>
-                    </div>
-                    <div class="text-gray-600 dark:text-gray-300 leading-relaxed text-sm">
-                        ${explanation}
-                    </div>
-                </div>
-            `;
-        });
-        
-        content += `
-            </div>
-            <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                    <i class="fas fa-info-circle mr-2"></i>
-                    <span>All evaluations complete. Click "Improve Response" to enhance the answer.</span>
-                </div>
-            </div>
-        `;
-        
-        evaluationDisplay.innerHTML = content;
+        // With the new history-based system, we don't need to display evaluations inline anymore
+        // The evaluation results are handled by addToEvaluationHistory function
+        // This function is kept for compatibility but doesn't modify the display
+        console.log('Multiple evaluations processed:', evaluations.length);
     }
     
     function displaySingleEvaluation(evaluation) {
-        const { label, explanation } = parseEvaluationText(evaluation);
-        const { iconClass, labelColor, bgColor } = getEvaluationStyling(label, 'groundedness');
-        
-        evaluationDisplay.innerHTML = `
-            <div class="eval-card p-6 rounded-lg border border-gray-200 dark:border-gray-700 ${bgColor}">
-                <div class="flex items-center mb-3">
-                    <i class="fas ${iconClass} text-2xl mr-3"></i>
-                    <h3 class="text-lg font-semibold ${labelColor}">${label}</h3>
-                </div>
-                <div class="text-gray-600 dark:text-gray-300 leading-relaxed">
-                    ${explanation}
-                </div>
-                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
-                    <div class="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        <span>Evaluation complete. Click "Improve Response" to enhance the answer.</span>
-                    </div>
-                </div>
-            </div>
-        `;
+        // With the new history-based system, we don't need to display evaluations inline anymore
+        // The evaluation results are handled by addToEvaluationHistory function
+        // This function is kept for compatibility but doesn't modify the display
+        console.log('Single evaluation processed:', evaluation.substring(0, 50) + '...');
     }
     
     // Evaluation History Management
