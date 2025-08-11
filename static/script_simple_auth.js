@@ -852,17 +852,20 @@ Explanation: [your explanation]`;
             
             // Determine label styling with improved colors
             let labelClass = '';
-            if (label.toLowerCase().includes('grounded') && !label.toLowerCase().includes('partial')) {
+            if (label.toLowerCase().includes('grounded') && !label.toLowerCase().includes('not') && !label.toLowerCase().includes('partial')) {
                 // Fully Grounded - Emerald Green
                 labelClass = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300';
             } else if (label.toLowerCase().includes('partial') || label.toLowerCase().includes('somewhat')) {
                 // Partially Grounded - Amber/Orange  
                 labelClass = 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+            } else if (label.toLowerCase().includes('not grounded') || label.toLowerCase().includes('not_grounded')) {
+                // Not Grounded - Red
+                labelClass = 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
             } else if (label.toLowerCase().includes('accurate') || label.toLowerCase().includes('good') || label.toLowerCase().includes('relevant')) {
                 // Other positive labels - Green
                 labelClass = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
             } else {
-                // Not Grounded / Negative - Red
+                // Default negative - Red
                 labelClass = 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
             }
             
