@@ -92,31 +92,6 @@ def index():
         session['evaluation_history'] = []
     return render_template('index_simple_auth.html')
 
-@app.route('/validate_api_key', methods=['POST'])
-def validate_api_key():
-    """Validate an Anthropic API key"""
-    try:
-        data = request.json
-        api_key = data.get('api_key', '')
-        
-        if not api_key:
-            return jsonify({'valid': False, 'error': 'No API key provided'}), 400
-        
-        # Test the API key with a minimal request
-        test_client = anthropic.Anthropic(api_key=api_key)
-        test_client.messages.create(
-            model="claude-3-haiku-20240307",
-            max_tokens=10,
-            messages=[{"role": "user", "content": "Hi"}]
-        )
-        
-        return jsonify({'valid': True, 'message': 'API key is valid'})
-    
-    except anthropic.AuthenticationError:
-        return jsonify({'valid': False, 'error': 'Invalid API key'}), 401
-    except Exception as e:
-        return jsonify({'valid': False, 'error': str(e)}), 400
-
 @app.route('/health')
 def health_check():
     """Health check endpoint for Render monitoring"""
@@ -143,6 +118,31 @@ def health_check():
         'timestamp': datetime.utcnow().isoformat()
     })
 
+@app.route('/validate_api_key', methods=['POST'])
+def validate_api_key():
+    """Validate an Anthropic API key"""
+    try:
+        data = request.json
+        api_key = data.get('api_key', '')
+        
+        if not api_key:
+            return jsonify({'valid': False, 'error': 'No API key provided'}), 400
+        
+        # Test the API key with a minimal request
+        test_client = anthropic.Anthropic(api_key=api_key)
+        test_client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=10,
+            messages=[{"role": "user", "content": "Hi"}]
+        )
+        
+        return jsonify({'valid': True, 'message': 'API key is valid'})
+    
+    except anthropic.AuthenticationError:
+        return jsonify({'valid': False, 'error': 'Invalid API key'}), 401
+    except Exception as e:
+        return jsonify({'valid': False, 'error': str(e)}), 400
+
 @app.route('/chat', methods=['POST'])
 def chat():
     global pdf_content
@@ -152,7 +152,6 @@ def chat():
         user_message = data.get('message', '')
         api_key = data.get('api_key', '')
         custom_prompt = data.get('evaluation_prompt', None)
-        evaluation_criteria = data.get('evaluation_criteria', [])
         
         if not api_key:
             return jsonify({'error': 'API key is required. Please add your Anthropic API key.'}), 401
@@ -202,65 +201,8 @@ Question: {user_message}"""
         ai_response = response.content[0].text
         
         evaluation = None
-        combined_evaluation = None
-        
-        if evaluation_criteria and len(evaluation_criteria) > 0:
-            # Process multiple evaluation criteria
-            evaluations = []
-            for criterion in evaluation_criteria:
-                criterion_type = criterion.get('type', 'groundedness')
-                criterion_prompt = criterion.get('prompt', '')
-                
-                if criterion_prompt:
-                    # Replace placeholders in custom prompt
-                    eval_prompt = criterion_prompt.replace('{document_content}', pdf_content[:3000] if pdf_content else 'No document provided.')
-                    eval_prompt = eval_prompt.replace('{question}', user_message)
-                    eval_prompt = eval_prompt.replace('{response}', ai_response)
-                    eval_prompt = eval_prompt.replace('{timestamp}', str(datetime.now()))
-                else:
-                    # Use appropriate default prompt based on criterion type and document availability
-                    if criterion_type == 'groundedness' and pdf_content:
-                        eval_prompt = GROUNDEDNESS_PROMPT.format(
-                            context=pdf_content[:3000],
-                            question=user_message,
-                            response=ai_response
-                        )
-                    else:
-                        # Generic evaluation prompt for non-document-based criteria
-                        eval_prompt = f"""Evaluate this AI response based on {criterion_type} criteria.
-
-User Question:
-{user_message}
-
-AI Response:
-{ai_response}
-
-Evaluate and provide:
-1. A label indicating the quality (e.g., "Good", "Fair", "Poor")
-2. A brief explanation (2-3 sentences) of your evaluation
-
-Format your response as:
-Label: [your label]
-Explanation: [your explanation]"""
-                
-                eval_response = client.messages.create(
-                    model="claude-3-haiku-20240307",
-                    max_tokens=500,
-                    messages=[{
-                        "role": "user",
-                        "content": eval_prompt
-                    }]
-                )
-                evaluations.append({
-                    'type': criterion_type,
-                    'evaluation': eval_response.content[0].text
-                })
-            
-            # Combine evaluations into a single structured response
-            combined_evaluation = evaluations
-            evaluation = evaluations[0]['evaluation'] if evaluations else None
-        elif pdf_content:
-            # Fallback to single evaluation if no criteria specified
+        if pdf_content:
+            # Use custom prompt if provided, otherwise use default
             if custom_prompt:
                 eval_prompt = custom_prompt.replace('{document_content}', pdf_content[:3000])
                 eval_prompt = eval_prompt.replace('{question}', user_message)
@@ -297,7 +239,6 @@ Explanation: [your explanation]"""
         return jsonify({
             'response': ai_response,
             'evaluation': evaluation,
-            'combined_evaluation': combined_evaluation,
             'evaluation_history': session.get('evaluation_history', [])
         })
     
@@ -353,10 +294,8 @@ def improve_response():
         original_question = data.get('question', '')
         original_response = data.get('response', '')
         evaluation = data.get('evaluation', '')
-        combined_evaluation = data.get('combined_evaluation', [])
         api_key = data.get('api_key', '')
         custom_prompt = data.get('evaluation_prompt', None)
-        evaluation_criteria = data.get('evaluation_criteria', [])
         
         if not api_key:
             return jsonify({'error': 'API key is required'}), 401
@@ -367,31 +306,7 @@ def improve_response():
         except Exception as e:
             return jsonify({'error': f'Invalid API key: {str(e)}'}), 401
         
-        # Build improvement prompt based on all evaluations
-        if combined_evaluation and len(combined_evaluation) > 0:
-            feedback_text = "Previous evaluations:\n"
-            for eval_item in combined_evaluation:
-                feedback_text += f"\n{eval_item['type'].upper()}: {eval_item['evaluation']}\n"
-            improvement_prompt = f"""{feedback_text}
-
-Based on ALL the above feedback, please improve your response to better address the question.
-
-**Important Instructions:**
-- Use markdown formatting for clarity
-- Structure key points with bullet points or numbered lists
-- Bold important terms from the document
-- Keep paragraphs concise and focused
-- Cite specific information from the document when possible
-- Be more precise and direct than the previous response
-
-Document context:
-{pdf_content[:3000]}
-
-Original question: {original_question}
-
-Please provide an improved, well-formatted response:"""
-        else:
-            improvement_prompt = f"""Previous evaluation: {evaluation}
+        improvement_prompt = f"""Previous evaluation: {evaluation}
 
 Please improve your response to better address the question while being more grounded in the document.
 
@@ -421,42 +336,8 @@ Please provide an improved, well-formatted response:"""
         
         improved_response = response.content[0].text
         
-        # Re-evaluate the improved response with all criteria
-        new_combined_evaluation = None
-        if evaluation_criteria and len(evaluation_criteria) > 0:
-            evaluations = []
-            for criterion in evaluation_criteria:
-                criterion_type = criterion.get('type', 'groundedness')
-                criterion_prompt = criterion.get('prompt', '')
-                
-                if criterion_prompt:
-                    eval_prompt = criterion_prompt.replace('{document_content}', pdf_content[:3000])
-                    eval_prompt = eval_prompt.replace('{question}', original_question)
-                    eval_prompt = eval_prompt.replace('{response}', improved_response)
-                    eval_prompt = eval_prompt.replace('{timestamp}', str(datetime.now()))
-                else:
-                    eval_prompt = GROUNDEDNESS_PROMPT.format(
-                        context=pdf_content[:3000],
-                        question=original_question,
-                        response=improved_response
-                    )
-                
-                eval_response = client.messages.create(
-                    model="claude-3-haiku-20240307",
-                    max_tokens=500,
-                    messages=[{
-                        "role": "user",
-                        "content": eval_prompt
-                    }]
-                )
-                evaluations.append({
-                    'type': criterion_type,
-                    'evaluation': eval_response.content[0].text
-                })
-            
-            new_combined_evaluation = evaluations
-            new_evaluation = evaluations[0]['evaluation'] if evaluations else None
-        elif custom_prompt:
+        # Re-evaluate the improved response
+        if custom_prompt:
             eval_prompt = custom_prompt.replace('{document_content}', pdf_content[:3000])
             eval_prompt = eval_prompt.replace('{question}', original_question)
             eval_prompt = eval_prompt.replace('{response}', improved_response)
@@ -493,7 +374,6 @@ Please provide an improved, well-formatted response:"""
         return jsonify({
             'response': improved_response,
             'evaluation': new_evaluation,
-            'combined_evaluation': new_combined_evaluation,
             'evaluation_history': session.get('evaluation_history', [])
         })
     
@@ -510,4 +390,4 @@ if __name__ == '__main__':
     if os.environ.get('FLASK_ENV') == 'production':
         app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
     else:
-        app.run(debug=True, port=5002)
+        app.run(debug=True, port=5001)

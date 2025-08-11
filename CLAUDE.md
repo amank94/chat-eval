@@ -20,13 +20,15 @@
 ### Key Features Implemented
 1. **PDF Upload & Processing**: Extract text from PDFs using PyPDF
 2. **AI Chat Interface**: Send questions and receive AI responses
-3. **Groundedness Evaluation**: Automatic evaluation of AI responses against document context
-4. **Evaluation History**: Session-based tracking of all evaluations
-5. **Prompt Customization**: Editable evaluation prompts with templates
-6. **Dark Mode**: Toggle between light and dark themes
-7. **Responsive Design**: Mobile-friendly interface
-8. **Markdown Rendering**: Proper formatting of AI responses
-9. **Panel Management**: Resizable, collapsible, independent scrolling panels
+3. **Multi-Criteria Evaluation System**: Evaluate responses using multiple criteria (Groundedness, Factual, Completeness, Relevance)
+4. **Inline Evaluation Details**: Click evaluation history items to show details inline below the item
+5. **Evaluation History**: Persistent tracking of all evaluations with localStorage support
+6. **Combined Feedback System**: Use feedback from multiple criteria to improve responses
+7. **Prompt Customization**: Editable evaluation prompts with templates
+8. **Dark Mode**: Toggle between light and dark themes
+9. **Responsive Design**: Mobile-friendly interface
+10. **Markdown Rendering**: Proper formatting of AI responses
+11. **Panel Management**: Resizable, collapsible, independent scrolling panels
 
 ## Project Structure
 ```
@@ -66,8 +68,12 @@ chat-eval/
 - `/clear_history` - Clear evaluation history (POST)
 
 ### Frontend Features
+- **Multi-Criteria Evaluation**: Checkbox selection for Groundedness, Factual, Completeness, Relevance
+- **Inline Evaluation Details**: Click history items to expand details inline below
+- **Combined Feedback**: Multiple evaluation criteria used together for response improvement
 - **Markdown Parsing**: Uses marked.js to render formatted responses
-- **Session Storage**: Evaluation history stored in Flask session
+- **Persistent History**: Evaluation history stored in localStorage (survives page refreshes)
+- **Session Storage**: Additional session-based tracking in Flask
 - **Prompt Templates**: Groundedness, Factual Accuracy, Completeness, Relevance
 - **Real-time UI**: Typing indicators, loading states, animations
 
@@ -87,15 +93,30 @@ PORT=5000                       # Server port
 ```bash
 source venv/bin/activate
 python app.py
-# Visit http://localhost:5001
+# Visit http://localhost:5002 (or 5001 depending on app.py configuration)
+# Note: You need a valid Anthropic API key to see evaluations work
 ```
 
-### Testing Commands
+### Testing with Playwright
 ```bash
-# No formal tests yet, but should add:
-pytest tests/
-npm run lint  # If adding JS linting
+# Install Playwright (one-time setup)
+pip install playwright pytest-playwright
+playwright install chromium
+
+# Run comprehensive test suite
+python test_app.py
+
+# Test specific features
+python test_[feature_name].py
 ```
+
+### IMPORTANT: Always Test New Features
+When implementing ANY new feature:
+1. Write Playwright tests FIRST (TDD approach)
+2. Implement the feature
+3. Run tests to verify functionality
+4. Use visual mode (headless=False) during development
+5. Test on multiple screen sizes
 
 ### Database Operations
 ```bash
@@ -112,15 +133,60 @@ git push origin main
 # Auto-deploys to Render
 ```
 
+## Testing Guidelines
+
+### Playwright Test Template
+```python
+import asyncio
+from playwright.async_api import async_playwright
+
+async def test_new_feature():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)  # Visual testing
+        page = await browser.new_page()
+        
+        await page.goto("http://localhost:5001")
+        
+        # Test implementation
+        # 1. Check element visibility
+        # 2. Test user interactions
+        # 3. Verify API responses
+        # 4. Check state changes
+        
+        # Assertions
+        assert await page.is_visible("#element-id")
+        
+        # Screenshots for debugging
+        await page.screenshot(path="test_debug.png")
+        
+        await browser.close()
+
+if __name__ == "__main__":
+    asyncio.run(test_new_feature())
+```
+
+### Test Coverage Areas
+1. **UI Components**: Visibility, interactions, state changes
+2. **API Calls**: Response handling, error states, timeouts
+3. **Data Persistence**: Session storage, localStorage, database
+4. **Responsive Design**: Mobile (375x667), Tablet (768x1024), Desktop (1920x1080)
+5. **Error Handling**: Network failures, invalid inputs, edge cases
+
 ## Known Issues & TODOs
 1. **PDF Size Limit**: Currently truncates to 10,000 characters
 2. **Session Persistence**: Uses Flask session, not persistent across browser sessions
 3. **Rate Limiting**: Not implemented yet
-4. **Tests**: No test suite implemented
+4. **Tests**: Playwright test suite now available (test_app.py)
 5. **Monitoring**: Basic health check only, no detailed metrics
 6. **Multi-PDF**: Single PDF at a time currently
 
 ## Recent Changes
+- **NEW**: Implemented multi-criteria evaluation system with checkboxes for Groundedness, Factual, Completeness, Relevance
+- **NEW**: Added inline evaluation details that expand under clicked history items (not at top)
+- **NEW**: Combined feedback system using multiple evaluation criteria for response improvement
+- **NEW**: Persistent evaluation history with localStorage (survives page refresh)
+- **NEW**: Enhanced backend to handle multiple evaluation criteria simultaneously
+- **NEW**: Clear evaluation history functionality
 - Added independent scrolling panels for chat and evaluation
 - Implemented markdown parsing for better message formatting
 - Added evaluation history tracking in session
@@ -208,17 +274,61 @@ python app.py
 - **Quick Deploy**: DEPLOY_NOW.md
 
 ## Important Notes for Future Development
-1. Always test PDF upload functionality after changes
-2. Ensure markdown parsing doesn't break with special characters
-3. Keep evaluation prompts customizable
-4. Maintain backwards compatibility with session data
-5. Test on both light and dark modes
-6. Verify mobile responsiveness
-7. Check database migrations before deploying
-8. Monitor API usage to control costs
-9. Keep health endpoint functional for monitoring
-10. Document any new environment variables
+1. **Multi-Criteria System**: The evaluation system now supports multiple criteria simultaneously - preserve this functionality in future changes
+2. **Inline Details**: Users expect evaluation details to show inline under history items, not at the top
+3. **localStorage Persistence**: Evaluation history is stored in localStorage and Flask session - maintain both for reliability
+4. **Combined Feedback**: The system uses feedback from all selected criteria to improve responses - don't break this workflow
+5. Always test PDF upload functionality after changes
+6. Ensure markdown parsing doesn't break with special characters
+7. Keep evaluation prompts customizable
+8. Maintain backwards compatibility with session data
+9. Test on both light and dark modes
+10. Verify mobile responsiveness
+11. Check database migrations before deploying
+12. Monitor API usage to control costs
+13. Keep health endpoint functional for monitoring
+14. Document any new environment variables
 
 ---
-*Last Updated*: Generated on project completion
+*Last Updated*: 2025-08-11 (Multi-Criteria Evaluation System Implementation)
 *Purpose*: Provide context for AI assistants working on this codebase
+
+## Latest Feature Implementation Summary (2025-08-11)
+
+### Completed: Multi-Criteria Evaluation System
+All three requested features have been fully implemented and tested:
+
+#### 1. Inline Evaluation Details ✅
+- **Implementation**: `toggleEvaluationDetails()` function in `script_simple_auth.js`
+- **Behavior**: Clicking evaluation history items shows details **inline below the item**
+- **Key Code**: Uses `eval-details-{index}` divs that expand/collapse under each history item
+- **User Benefit**: No confusion about which evaluation is being viewed
+
+#### 2. Multi-Criteria Checkboxes ✅  
+- **Implementation**: 4 evaluation criteria checkboxes in `index_simple_auth.html`
+- **Criteria**: Groundedness, Factual, Completeness, Relevance
+- **Behavior**: Users can select multiple criteria simultaneously
+- **Key Code**: `getSelectedEvaluationCriteria()` function collects all checked criteria
+- **User Benefit**: Comprehensive evaluation from multiple perspectives
+
+#### 3. Combined Feedback System ✅
+- **Implementation**: Enhanced `/chat` and `/improve` endpoints in `app.py`
+- **Behavior**: Uses feedback from ALL selected criteria to improve responses
+- **Key Code**: Backend processes `evaluation_criteria` array and generates `combined_evaluation`
+- **User Benefit**: More nuanced and comprehensive response improvements
+
+### Technical Implementation Details
+- **Files Modified**: `app.py`, `templates/index_simple_auth.html`, `static/script_simple_auth.js`
+- **Backend Changes**: Multi-criteria evaluation processing, combined feedback generation
+- **Frontend Changes**: Evaluation history UI with inline details, multi-select checkboxes
+- **Persistence**: localStorage for evaluation history (survives page refreshes)
+- **Testing**: Comprehensive Playwright test validation completed
+
+### Usage Instructions
+1. **Select Criteria**: Check desired evaluation criteria (multiple allowed)
+2. **Send Message**: System evaluates response against ALL selected criteria  
+3. **View History**: All evaluations stored in interactive history list
+4. **Inline Details**: Click any history item to see evaluation details expand inline below it
+5. **Improve Responses**: System uses combined feedback from all criteria for improvements
+
+The system now provides a sophisticated multi-dimensional evaluation capability exactly as requested.

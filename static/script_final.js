@@ -1,0 +1,1019 @@
+let currentQuestion = '';
+let currentResponse = '';
+let currentEvaluation = '';
+let pdfUploaded = false;
+let isDarkMode = false;
+let isResizing = false;
+let currentPrompt = '';
+let promptHistory = [];
+let evaluationHistory = [];
+let evaluationCounter = 0;
+let expandedHistoryItem = null;
+
+// Prompt Templates
+const promptTemplates = {
+    groundedness: `You are an evaluation assistant tasked with assessing the groundedness of AI responses to questions about a document.
+
+Given the following:
+- Document content: {document_content}
+- Question: {question}  
+- AI Response: {response}
+
+Evaluate whether the response is well-grounded in the provided document. Consider:
+1. Does the response accurately reflect information from the document?
+2. Are there any claims made that cannot be verified from the document?
+3. Is the response complete with respect to the available information?
+
+Provide your evaluation in the following format:
+Label: [Grounded/Partially Grounded/Not Grounded]
+Explanation: [Detailed explanation of your evaluation]`,
+
+    factual: `You are an evaluation assistant focused on factual accuracy.
+
+Given the following:
+- Document content: {document_content}
+- Question: {question}
+- AI Response: {response}
+
+Assess the factual accuracy of the response. Consider:
+1. Are all facts stated correctly according to the document?
+2. Are there any misrepresentations or errors?
+3. Is the information presented without distortion?
+
+Provide your evaluation in the following format:
+Label: [Accurate/Mostly Accurate/Inaccurate]
+Explanation: [Detailed analysis of factual accuracy]`,
+
+    completeness: `You are an evaluation assistant assessing response completeness.
+
+Given the following:
+- Document content: {document_content}
+- Question: {question}
+- AI Response: {response}
+
+Evaluate the completeness of the response. Consider:
+1. Does the response address all aspects of the question?
+2. Is any relevant information from the document omitted?
+3. Would additional context improve the response?
+
+Provide your evaluation in the following format:
+Label: [Complete/Partially Complete/Incomplete]
+Explanation: [Analysis of what is covered and what is missing]`,
+
+    relevance: `You are an evaluation assistant measuring response relevance.
+
+Given the following:
+- Document content: {document_content}
+- Question: {question}
+- AI Response: {response}
+
+Assess how relevant the response is to the question. Consider:
+1. Does the response directly address the question asked?
+2. Is there unnecessary or off-topic information?
+3. How well does the response focus on the user's needs?
+
+Provide your evaluation in the following format:
+Label: [Highly Relevant/Relevant/Not Relevant]
+Explanation: [Assessment of relevance and focus]`
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const sendBtn = document.getElementById('send-btn');
+    const userInput = document.getElementById('user-input');
+    const chatMessages = document.getElementById('chat-messages');
+    const evaluationDisplay = document.getElementById('evaluation-display');
+    const evaluationHistoryContainer = document.getElementById('evaluation-history');
+    const improveBtn = document.getElementById('improve-btn');
+    const uploadBtn = document.getElementById('upload-btn');
+    const pdfUpload = document.getElementById('pdf-upload');
+    const uploadStatus = document.getElementById('upload-status');
+    const fileName = document.getElementById('file-name');
+    const darkModeToggle = document.getElementById('dark-mode-toggle');
+    const typingIndicator = document.getElementById('typing-indicator');
+    const panelDivider = document.getElementById('panel-divider');
+    const chatPanel = document.getElementById('chat-panel');
+    const evalPanel = document.getElementById('eval-panel');
+    const collapseEval = document.getElementById('collapse-eval');
+    const fullscreenChat = document.getElementById('fullscreen-chat');
+    const fullscreenEval = document.getElementById('fullscreen-eval');
+    
+    // Prompt Editor Elements
+    const evalTab = document.getElementById('eval-tab');
+    const promptTab = document.getElementById('prompt-tab');
+    const promptEditor = document.getElementById('prompt-editor');
+    const promptTextarea = document.getElementById('prompt-textarea');
+    const charCount = document.getElementById('char-count');
+    const savePromptBtn = document.getElementById('save-prompt');
+    const resetPromptBtn = document.getElementById('reset-prompt');
+    const templatesBtn = document.getElementById('templates-btn');
+    const templatesDropdown = document.getElementById('templates-dropdown');
+    const versionHistory = document.getElementById('version-history');
+    
+    // Evaluation criteria checkboxes
+    const evalGroundedness = document.getElementById('eval-groundedness');
+    const evalFactual = document.getElementById('eval-factual');
+    const evalCompleteness = document.getElementById('eval-completeness');
+    const evalRelevance = document.getElementById('eval-relevance');
+    
+    // Initialize prompt
+    currentPrompt = localStorage.getItem('evaluationPrompt') || promptTemplates.groundedness;
+    if (promptTextarea) {
+        promptTextarea.value = currentPrompt;
+        charCount.textContent = currentPrompt.length;
+    }
+    
+    // Load prompt history
+    const savedHistory = localStorage.getItem('promptHistory');
+    if (savedHistory) {
+        promptHistory = JSON.parse(savedHistory);
+        updateVersionHistory();
+    }
+    
+    // Load evaluation history from localStorage
+    const savedEvalHistory = localStorage.getItem('evaluationHistory');
+    if (savedEvalHistory) {
+        evaluationHistory = JSON.parse(savedEvalHistory);
+        updateEvaluationHistoryUI();
+    }
+    
+    // Initialize dark mode
+    if (localStorage.getItem('darkMode') === 'true') {
+        document.documentElement.classList.add('dark');
+        isDarkMode = true;
+        darkModeToggle.innerHTML = '<i class="fas fa-sun text-yellow-400"></i>';
+    }
+    
+    // Dark mode toggle
+    darkModeToggle.addEventListener('click', () => {
+        isDarkMode = !isDarkMode;
+        document.documentElement.classList.toggle('dark');
+        localStorage.setItem('darkMode', isDarkMode);
+        darkModeToggle.innerHTML = isDarkMode 
+            ? '<i class="fas fa-sun text-yellow-400"></i>'
+            : '<i class="fas fa-moon text-gray-600 dark:text-gray-400"></i>';
+    });
+    
+    // Panel resizing
+    let startX = 0;
+    let startWidthChat = 0;
+    let startWidthEval = 0;
+    
+    panelDivider.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        startX = e.clientX;
+        startWidthChat = chatPanel.offsetWidth;
+        startWidthEval = evalPanel.offsetWidth;
+        document.body.style.cursor = 'col-resize';
+        e.preventDefault();
+    });
+    
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        
+        const dx = e.clientX - startX;
+        const newChatWidth = startWidthChat + dx;
+        const newEvalWidth = startWidthEval - dx;
+        
+        if (newChatWidth > 300 && newEvalWidth > 300) {
+            chatPanel.style.flex = `0 0 ${newChatWidth}px`;
+            evalPanel.style.flex = `0 0 ${newEvalWidth}px`;
+        }
+    });
+    
+    document.addEventListener('mouseup', () => {
+        isResizing = false;
+        document.body.style.cursor = 'default';
+    });
+    
+    // Collapse evaluation panel
+    let isEvalCollapsed = false;
+    collapseEval.addEventListener('click', () => {
+        isEvalCollapsed = !isEvalCollapsed;
+        if (isEvalCollapsed) {
+            evalPanel.classList.add('panel-collapsed');
+            collapseEval.innerHTML = '<i class="fas fa-chevron-left text-gray-600 dark:text-gray-400"></i>';
+            chatPanel.style.flex = '1';
+            panelDivider.style.display = 'none';
+        } else {
+            evalPanel.classList.remove('panel-collapsed');
+            collapseEval.innerHTML = '<i class="fas fa-chevron-right text-gray-600 dark:text-gray-400"></i>';
+            chatPanel.style.flex = '0 0 50%';
+            evalPanel.style.flex = '0 0 50%';
+            panelDivider.style.display = 'block';
+        }
+    });
+    
+    // Fullscreen toggles
+    fullscreenChat.addEventListener('click', () => {
+        chatPanel.classList.toggle('panel-fullscreen');
+        const icon = fullscreenChat.querySelector('i');
+        if (chatPanel.classList.contains('panel-fullscreen')) {
+            icon.classList.remove('fa-expand');
+            icon.classList.add('fa-compress');
+            evalPanel.style.display = 'none';
+            panelDivider.style.display = 'none';
+        } else {
+            icon.classList.remove('fa-compress');
+            icon.classList.add('fa-expand');
+            evalPanel.style.display = 'flex';
+            panelDivider.style.display = 'block';
+        }
+    });
+    
+    fullscreenEval.addEventListener('click', () => {
+        evalPanel.classList.toggle('panel-fullscreen');
+        const icon = fullscreenEval.querySelector('i');
+        if (evalPanel.classList.contains('panel-fullscreen')) {
+            icon.classList.remove('fa-expand');
+            icon.classList.add('fa-compress');
+            chatPanel.style.display = 'none';
+            panelDivider.style.display = 'none';
+        } else {
+            icon.classList.remove('fa-compress');
+            icon.classList.add('fa-expand');
+            chatPanel.style.display = 'flex';
+            panelDivider.style.display = 'block';
+        }
+    });
+    
+    // Send message functionality
+    sendBtn.addEventListener('click', sendMessage);
+    userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    // Upload PDF functionality
+    uploadBtn.addEventListener('click', uploadPDF);
+    
+    // Show filename when PDF is selected
+    pdfUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            fileName.textContent = file.name;
+            fileName.classList.remove('hidden');
+            uploadBtn.disabled = false;
+        } else {
+            fileName.classList.add('hidden');
+            uploadBtn.disabled = true;
+        }
+    });
+    
+    // Tab switching
+    evalTab.addEventListener('click', () => {
+        evalTab.classList.add('text-blue-600', 'dark:text-blue-400', 'border-b-2', 'border-blue-600', 'dark:border-blue-400');
+        evalTab.classList.remove('text-gray-600', 'dark:text-gray-400');
+        promptTab.classList.remove('text-blue-600', 'dark:text-blue-400', 'border-b-2', 'border-blue-600', 'dark:border-blue-400');
+        promptTab.classList.add('text-gray-600', 'dark:text-gray-400');
+        evaluationDisplay.classList.remove('hidden');
+        promptEditor.classList.add('hidden');
+    });
+    
+    promptTab.addEventListener('click', () => {
+        promptTab.classList.add('text-blue-600', 'dark:text-blue-400', 'border-b-2', 'border-blue-600', 'dark:border-blue-400');
+        promptTab.classList.remove('text-gray-600', 'dark:text-gray-400');
+        evalTab.classList.remove('text-blue-600', 'dark:text-blue-400', 'border-b-2', 'border-blue-600', 'dark:border-blue-400');
+        evalTab.classList.add('text-gray-600', 'dark:text-gray-400');
+        promptEditor.classList.remove('hidden');
+        evaluationDisplay.classList.add('hidden');
+    });
+    
+    // Templates dropdown
+    templatesBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        templatesDropdown.classList.toggle('hidden');
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', () => {
+        if (templatesDropdown) templatesDropdown.classList.add('hidden');
+    });
+    
+    // Template selection
+    document.querySelectorAll('.template-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const template = e.currentTarget.dataset.template;
+            promptTextarea.value = promptTemplates[template];
+            charCount.textContent = promptTemplates[template].length;
+            templatesDropdown.classList.add('hidden');
+        });
+    });
+    
+    // Character count
+    if (promptTextarea) {
+        promptTextarea.addEventListener('input', () => {
+            charCount.textContent = promptTextarea.value.length;
+        });
+    }
+    
+    // Save prompt
+    if (savePromptBtn) {
+        savePromptBtn.addEventListener('click', () => {
+            currentPrompt = promptTextarea.value;
+            localStorage.setItem('evaluationPrompt', currentPrompt);
+            
+            // Add to history
+            const timestamp = new Date().toLocaleString();
+            promptHistory.unshift({ prompt: currentPrompt, timestamp });
+            if (promptHistory.length > 10) promptHistory.pop(); // Keep only last 10
+            localStorage.setItem('promptHistory', JSON.stringify(promptHistory));
+            updateVersionHistory();
+            
+            // Show success message
+            savePromptBtn.innerHTML = '<i class="fas fa-check mr-1"></i> Saved!';
+            savePromptBtn.classList.add('bg-green-700');
+            setTimeout(() => {
+                savePromptBtn.innerHTML = '<i class="fas fa-save mr-1"></i> Save';
+                savePromptBtn.classList.remove('bg-green-700');
+            }, 2000);
+        });
+    }
+    
+    // Reset prompt
+    if (resetPromptBtn) {
+        resetPromptBtn.addEventListener('click', () => {
+            promptTextarea.value = promptTemplates.groundedness;
+            charCount.textContent = promptTemplates.groundedness.length;
+        });
+    }
+    
+    // Update version history display
+    function updateVersionHistory() {
+        if (!versionHistory) return;
+        
+        if (promptHistory.length === 0) {
+            versionHistory.innerHTML = '<p class="text-xs text-gray-500 dark:text-gray-400">No history yet</p>';
+            return;
+        }
+        
+        versionHistory.innerHTML = promptHistory.map((item, index) => `
+            <div class="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700" onclick="loadHistoryItem(${index})">
+                <span class="text-xs text-gray-600 dark:text-gray-400">${item.timestamp}</span>
+                <button class="text-xs text-blue-600 dark:text-blue-400 hover:underline">Load</button>
+            </div>
+        `).join('');
+    }
+    
+    // Load history item
+    window.loadHistoryItem = function(index) {
+        const item = promptHistory[index];
+        promptTextarea.value = item.prompt;
+        charCount.textContent = item.prompt.length;
+    };
+    
+    // Show typing indicator
+    function showTypingIndicator() {
+        typingIndicator.classList.remove('hidden');
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    function hideTypingIndicator() {
+        typingIndicator.classList.add('hidden');
+    }
+    
+    async function uploadPDF() {
+        const file = pdfUpload.files[0];
+        if (!file) {
+            uploadStatus.innerHTML = '<i class="fas fa-exclamation-circle text-red-500 mr-1"></i> Please select a PDF file';
+            return;
+        }
+        
+        if (file.type !== 'application/pdf') {
+            uploadStatus.innerHTML = '<i class="fas fa-exclamation-circle text-red-500 mr-1"></i> Please select a valid PDF file';
+            return;
+        }
+        
+        uploadStatus.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Uploading...';
+        uploadBtn.disabled = true;
+        
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const response = await fetch('/upload_pdf', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        pdf_data: e.target.result
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    uploadStatus.innerHTML = `<i class="fas fa-check-circle text-green-500 mr-1"></i> ${data.message}`;
+                    pdfUploaded = true;
+                    userInput.placeholder = 'Ask a question about the uploaded PDF...';
+                    fileName.classList.add('hidden');
+                    pdfUpload.value = '';
+                    
+                    // Remove welcome message
+                    const welcomeMsg = chatMessages.querySelector('.text-center');
+                    if (welcomeMsg) welcomeMsg.remove();
+                } else {
+                    uploadStatus.innerHTML = `<i class="fas fa-exclamation-circle text-red-500 mr-1"></i> ${data.error || 'Upload failed'}`;
+                }
+            } catch (error) {
+                uploadStatus.innerHTML = `<i class="fas fa-exclamation-circle text-red-500 mr-1"></i> ${error.message}`;
+            } finally {
+                uploadBtn.disabled = false;
+            }
+        };
+        
+        reader.readAsDataURL(file);
+    }
+    
+    // Get selected evaluation criteria
+    function getSelectedCriteria() {
+        const criteria = [];
+        
+        if (evalGroundedness && evalGroundedness.checked) {
+            criteria.push({
+                type: 'groundedness',
+                prompt: promptTemplates.groundedness
+            });
+        }
+        if (evalFactual && evalFactual.checked) {
+            criteria.push({
+                type: 'factual',
+                prompt: promptTemplates.factual
+            });
+        }
+        if (evalCompleteness && evalCompleteness.checked) {
+            criteria.push({
+                type: 'completeness',
+                prompt: promptTemplates.completeness
+            });
+        }
+        if (evalRelevance && evalRelevance.checked) {
+            criteria.push({
+                type: 'relevance',
+                prompt: promptTemplates.relevance
+            });
+        }
+        
+        // If no criteria selected, use default groundedness
+        if (criteria.length === 0 && evalGroundedness) {
+            evalGroundedness.checked = true;
+            criteria.push({
+                type: 'groundedness',
+                prompt: promptTemplates.groundedness
+            });
+        }
+        
+        return criteria;
+    }
+    
+    // Enhanced sendMessage with multiple criteria support
+    async function sendMessage() {
+        const message = userInput.value.trim();
+        if (!message) return;
+        
+        currentQuestion = message;
+        
+        // Remove welcome message if it exists
+        const welcomeMsg = chatMessages.querySelector('.text-center');
+        if (welcomeMsg) welcomeMsg.remove();
+        
+        addMessage(message, 'user');
+        userInput.value = '';
+        sendBtn.disabled = true;
+        
+        showTypingIndicator();
+        
+        try {
+            // Get selected evaluation criteria
+            const evaluationCriteria = getSelectedCriteria();
+            
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    message,
+                    evaluation_prompt: currentPrompt,
+                    evaluation_criteria: evaluationCriteria
+                })
+            });
+            
+            const data = await response.json();
+            
+            hideTypingIndicator();
+            
+            if (data.error) {
+                addMessage('Error: ' + data.error, 'assistant');
+            } else {
+                currentResponse = data.response;
+                addMessage(data.response, 'assistant');
+                
+                if (data.evaluation) {
+                    currentEvaluation = data.evaluation;
+                    addEvaluationToHistory(currentQuestion, data.response, data.evaluation);
+                    improveBtn.classList.remove('hidden');
+                }
+                
+                // Update evaluation history from backend if provided
+                if (data.evaluation_history) {
+                    evaluationHistory = data.evaluation_history;
+                    updateEvaluationHistoryUI();
+                }
+            }
+        } catch (error) {
+            hideTypingIndicator();
+            addMessage('Error: ' + error.message, 'assistant');
+        } finally {
+            sendBtn.disabled = false;
+        }
+    }
+    
+    // Add evaluation to history
+    function addEvaluationToHistory(question, response, evaluation) {
+        evaluationCounter++;
+        const timestamp = new Date().toISOString();
+        
+        const historyItem = {
+            id: evaluationCounter,
+            question: question,
+            response: response,
+            evaluation: evaluation,
+            timestamp: timestamp
+        };
+        
+        evaluationHistory.unshift(historyItem);
+        
+        // Keep only last 20 evaluations in localStorage
+        if (evaluationHistory.length > 20) {
+            evaluationHistory = evaluationHistory.slice(0, 20);
+        }
+        
+        localStorage.setItem('evaluationHistory', JSON.stringify(evaluationHistory));
+        updateEvaluationHistoryUI();
+    }
+    
+    // Update evaluation history UI with inline expansion
+    function updateEvaluationHistoryUI() {
+        if (!evaluationHistoryContainer) return;
+        
+        if (evaluationHistory.length === 0) {
+            // Show placeholder
+            evaluationHistoryContainer.innerHTML = `
+                <div id="eval-placeholder" class="flex items-center justify-center py-8">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-chart-bar text-gray-400 dark:text-gray-500 text-2xl"></i>
+                        </div>
+                        <p class="text-gray-500 dark:text-gray-400">Send a message to see evaluations</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+        
+        // Build history items HTML
+        const historyHTML = evaluationHistory.map((item, index) => {
+            const date = new Date(item.timestamp);
+            const timeStr = date.toLocaleTimeString();
+            const dateStr = date.toLocaleDateString();
+            
+            // Parse evaluation to get labels
+            let labels = [];
+            let isMultiCriteria = item.evaluation && item.evaluation.includes('MULTI-CRITERIA EVALUATION');
+            
+            if (isMultiCriteria) {
+                // Parse multi-criteria evaluation
+                const sections = item.evaluation.split('[').filter(s => s.includes(']'));
+                sections.forEach(section => {
+                    const type = section.split(']')[0];
+                    const content = section.split(']')[1];
+                    if (content) {
+                        const labelMatch = content.match(/Label:\s*([^\n]+)/);
+                        if (labelMatch) {
+                            labels.push({ type: type.toLowerCase(), label: labelMatch[1].trim() });
+                        }
+                    }
+                });
+            } else {
+                // Single evaluation
+                const lines = item.evaluation.split('\n');
+                for (const line of lines) {
+                    if (line.startsWith('Label:')) {
+                        labels.push({ type: 'evaluation', label: line.replace('Label:', '').trim() });
+                        break;
+                    }
+                }
+            }
+            
+            // Create label badges HTML
+            const labelsHTML = labels.map(({ type, label }) => {
+                let labelClass = 'bg-gray-100 text-gray-800';
+                
+                if (label.toLowerCase().includes('grounded') && !label.toLowerCase().includes('not')) {
+                    if (label.toLowerCase().includes('partially')) {
+                        labelClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+                    } else {
+                        labelClass = 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+                    }
+                } else if (label.toLowerCase().includes('not')) {
+                    labelClass = 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+                } else if (label.toLowerCase().includes('accurate')) {
+                    labelClass = 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+                } else if (label.toLowerCase().includes('complete')) {
+                    labelClass = 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
+                } else if (label.toLowerCase().includes('relevant')) {
+                    labelClass = 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200';
+                }
+                
+                const typeIcon = type === 'groundedness' ? 'check-circle' :
+                                type === 'factual' ? 'info-circle' :
+                                type === 'completeness' ? 'tasks' :
+                                type === 'relevance' ? 'bullseye' : 'chart-bar';
+                
+                return `
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${labelClass}">
+                        ${type !== 'evaluation' ? `<i class="fas fa-${typeIcon} mr-1 text-[10px]"></i>` : ''}
+                        ${label}
+                    </span>
+                `;
+            }).join('');
+            
+            return `
+                <div class="evaluation-history-item-container">
+                    <div class="evaluation-history-item bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer" onclick="toggleEvaluationDetails(${index})">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="flex flex-wrap items-center gap-2">
+                                ${labelsHTML}
+                                ${item.is_improved ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"><i class="fas fa-magic mr-1"></i>Improved</span>' : ''}
+                            </div>
+                            <span class="text-xs text-gray-500 dark:text-gray-400 ml-2">${timeStr}</span>
+                        </div>
+                        <div class="text-sm text-gray-700 dark:text-gray-300 truncate">
+                            <strong>Q:</strong> ${item.question}
+                        </div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            ${dateStr}
+                        </div>
+                    </div>
+                    <div id="eval-details-${index}" class="hidden mt-2 bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        <!-- Evaluation details will be inserted here -->
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        evaluationHistoryContainer.innerHTML = `
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <i class="fas fa-history mr-2"></i>
+                    Evaluation History (${evaluationHistory.length})
+                </h3>
+                <button onclick="clearEvaluationHistory()" class="text-xs text-red-600 dark:text-red-400 hover:underline">
+                    Clear All
+                </button>
+            </div>
+            <div class="space-y-3">
+                ${historyHTML}
+            </div>
+        `;
+    }
+    
+    // Toggle evaluation details (inline expansion)
+    window.toggleEvaluationDetails = function(index) {
+        const item = evaluationHistory[index];
+        const detailsDiv = document.getElementById(`eval-details-${index}`);
+        
+        // Close previously expanded item
+        if (expandedHistoryItem !== null && expandedHistoryItem !== index) {
+            const prevDetails = document.getElementById(`eval-details-${expandedHistoryItem}`);
+            if (prevDetails) prevDetails.classList.add('hidden');
+        }
+        
+        // Toggle current item
+        if (detailsDiv.classList.contains('hidden')) {
+            // Show details inline
+            detailsDiv.classList.remove('hidden');
+            expandedHistoryItem = index;
+            
+            // Format the evaluation details
+            let detailsHTML = '';
+            
+            if (item.evaluation.includes('MULTI-CRITERIA EVALUATION')) {
+                // Parse multi-criteria evaluation
+                const sections = item.evaluation.split('[').filter(s => s.includes(']'));
+                sections.forEach(section => {
+                    const type = section.split(']')[0];
+                    const content = section.split(']')[1];
+                    if (content) {
+                        const labelMatch = content.match(/Label:\s*([^\n]+)/);
+                        const explanationMatch = content.match(/Explanation:\s*([\s\S]+?)(?=\[|$)/);
+                        
+                        if (labelMatch && explanationMatch) {
+                            const label = labelMatch[1].trim();
+                            const explanation = explanationMatch[1].trim();
+                            
+                            let iconClass = 'fa-circle text-gray-500';
+                            let borderColor = 'border-gray-300';
+                            
+                            if (label.toLowerCase().includes('grounded') && !label.toLowerCase().includes('not')) {
+                                iconClass = label.toLowerCase().includes('partially') ? 
+                                    'fa-exclamation-triangle text-amber-500' : 
+                                    'fa-check-circle text-green-500';
+                                borderColor = label.toLowerCase().includes('partially') ? 
+                                    'border-amber-400' : 'border-green-400';
+                            } else if (label.toLowerCase().includes('not')) {
+                                iconClass = 'fa-times-circle text-red-500';
+                                borderColor = 'border-red-400';
+                            } else if (label.toLowerCase().includes('accurate')) {
+                                iconClass = 'fa-info-circle text-blue-500';
+                                borderColor = 'border-blue-400';
+                            } else if (label.toLowerCase().includes('complete')) {
+                                iconClass = 'fa-tasks text-purple-500';
+                                borderColor = 'border-purple-400';
+                            } else if (label.toLowerCase().includes('relevant')) {
+                                iconClass = 'fa-bullseye text-indigo-500';
+                                borderColor = 'border-indigo-400';
+                            }
+                            
+                            detailsHTML += `
+                                <div class="mb-3 p-3 bg-white dark:bg-gray-800 rounded border-l-4 ${borderColor}">
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas ${iconClass} mr-2"></i>
+                                        <span class="font-semibold text-sm text-gray-900 dark:text-white">${type}</span>
+                                        <span class="ml-2 text-sm text-gray-600 dark:text-gray-400">- ${label}</span>
+                                    </div>
+                                    <div class="text-sm text-gray-700 dark:text-gray-300">
+                                        ${explanation}
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+                });
+            } else {
+                // Single evaluation
+                const lines = item.evaluation.split('\n');
+                let label = '';
+                let explanation = '';
+                
+                for (const line of lines) {
+                    if (line.startsWith('Label:')) {
+                        label = line.replace('Label:', '').trim();
+                    } else if (line.startsWith('Explanation:')) {
+                        explanation = line.replace('Explanation:', '').trim();
+                    } else if (explanation && line.trim()) {
+                        explanation += ' ' + line.trim();
+                    }
+                }
+                
+                let iconClass = 'fa-circle text-gray-500';
+                let borderColor = 'border-gray-300';
+                
+                if (label.toLowerCase().includes('grounded') && !label.toLowerCase().includes('not')) {
+                    iconClass = label.toLowerCase().includes('partially') ? 
+                        'fa-exclamation-triangle text-amber-500' : 
+                        'fa-check-circle text-green-500';
+                    borderColor = label.toLowerCase().includes('partially') ? 
+                        'border-amber-400' : 'border-green-400';
+                } else if (label.toLowerCase().includes('not')) {
+                    iconClass = 'fa-times-circle text-red-500';
+                    borderColor = 'border-red-400';
+                }
+                
+                detailsHTML = `
+                    <div class="p-3 bg-white dark:bg-gray-800 rounded border-l-4 ${borderColor}">
+                        <div class="flex items-center mb-2">
+                            <i class="fas ${iconClass} mr-2"></i>
+                            <span class="font-semibold text-sm text-gray-900 dark:text-white">${label}</span>
+                        </div>
+                        <div class="text-sm text-gray-700 dark:text-gray-300">
+                            ${explanation}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Add action buttons
+            detailsHTML += `
+                <div class="mt-3 flex items-center justify-end space-x-2">
+                    <button onclick="useEvaluationForImprovement(${index})" class="px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition-colors">
+                        <i class="fas fa-magic mr-1"></i>
+                        Improve Response
+                    </button>
+                </div>
+            `;
+            
+            detailsDiv.innerHTML = detailsHTML;
+            
+            // Set current context for improvement
+            currentQuestion = item.question;
+            currentResponse = item.response;
+            currentEvaluation = item.evaluation;
+        } else {
+            // Hide details
+            detailsDiv.classList.add('hidden');
+            expandedHistoryItem = null;
+        }
+    };
+    
+    // Use evaluation for improvement
+    window.useEvaluationForImprovement = function(index) {
+        const item = evaluationHistory[index];
+        currentQuestion = item.question;
+        currentResponse = item.response;
+        currentEvaluation = item.evaluation;
+        improveBtn.classList.remove('hidden');
+        improveBtn.scrollIntoView({ behavior: 'smooth' });
+        improveBtn.click();
+    };
+    
+    // Clear evaluation history
+    window.clearEvaluationHistory = function() {
+        if (confirm('Are you sure you want to clear all evaluation history?')) {
+            evaluationHistory = [];
+            localStorage.removeItem('evaluationHistory');
+            updateEvaluationHistoryUI();
+            
+            // Also clear from backend
+            fetch('/clear_history', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+        }
+    };
+    
+    improveBtn.addEventListener('click', improveResponse);
+    
+    async function improveResponse() {
+        if (!currentQuestion || !currentResponse || !currentEvaluation) return;
+        
+        improveBtn.disabled = true;
+        improveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Improving...';
+        
+        showTypingIndicator();
+        
+        try {
+            const response = await fetch('/improve', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    question: currentQuestion,
+                    response: currentResponse,
+                    evaluation: currentEvaluation,
+                    evaluation_prompt: currentPrompt
+                })
+            });
+            
+            const data = await response.json();
+            
+            hideTypingIndicator();
+            
+            if (data.error) {
+                addMessage('Error: ' + data.error, 'assistant');
+            } else {
+                currentResponse = data.response;
+                addMessage('Improved Response:\n\n' + data.response, 'assistant', true);
+                
+                if (data.evaluation) {
+                    currentEvaluation = data.evaluation;
+                    const historyItem = {
+                        id: ++evaluationCounter,
+                        question: currentQuestion,
+                        response: data.response,
+                        evaluation: data.evaluation,
+                        timestamp: new Date().toISOString(),
+                        is_improved: true
+                    };
+                    evaluationHistory.unshift(historyItem);
+                    localStorage.setItem('evaluationHistory', JSON.stringify(evaluationHistory));
+                    updateEvaluationHistoryUI();
+                }
+                
+                // Update evaluation history from backend if provided
+                if (data.evaluation_history) {
+                    evaluationHistory = data.evaluation_history;
+                    updateEvaluationHistoryUI();
+                }
+            }
+        } catch (error) {
+            hideTypingIndicator();
+            addMessage('Error: ' + error.message, 'assistant');
+        } finally {
+            improveBtn.disabled = false;
+            improveBtn.innerHTML = '<i class="fas fa-magic mr-2"></i> Improve Response';
+        }
+    }
+    
+    function addMessage(text, sender, isImproved = false) {
+        const messageContainer = document.createElement('div');
+        messageContainer.className = `flex items-start space-x-3 ${sender === 'user' ? 'justify-end' : ''}`;
+        
+        if (sender === 'assistant') {
+            // Assistant avatar
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar assistant flex items-center justify-center';
+            avatar.innerHTML = '<i class="fas fa-robot text-white text-sm"></i>';
+            messageContainer.appendChild(avatar);
+        }
+        
+        // Message bubble
+        const messageBubble = document.createElement('div');
+        messageBubble.className = `message-bubble ${sender} px-4 py-3 rounded-lg`;
+        
+        if (sender === 'user') {
+            messageBubble.classList.add('bg-blue-600', 'text-white');
+        } else {
+            messageBubble.classList.add('bg-white', 'dark:bg-gray-700', 'text-gray-800', 'dark:text-gray-200', 'border', 'border-gray-200', 'dark:border-gray-600');
+        }
+        
+        // Add improved badge if needed
+        if (isImproved) {
+            const badge = document.createElement('div');
+            badge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100 mb-2';
+            badge.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Improved';
+            messageBubble.appendChild(badge);
+        }
+        
+        const messageText = document.createElement('div');
+        messageText.className = 'chat-message prose prose-sm dark:prose-invert max-w-none';
+        
+        // Parse markdown for assistant messages
+        if (sender === 'assistant' && typeof marked !== 'undefined') {
+            // Configure marked options for better formatting
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                headerIds: false,
+                mangle: false
+            });
+            
+            // Parse the markdown
+            let formattedText = marked.parse(text);
+            
+            // Apply custom styles to parsed HTML
+            messageText.innerHTML = formattedText;
+            styleMarkdownContent(messageText);
+        } else {
+            // For user messages or if marked is not available, just display as text
+            messageText.textContent = text;
+        }
+        
+        messageBubble.appendChild(messageText);
+        
+        messageContainer.appendChild(messageBubble);
+        
+        if (sender === 'user') {
+            // User avatar
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar user flex items-center justify-center';
+            avatar.innerHTML = '<i class="fas fa-user text-white text-sm"></i>';
+            messageContainer.appendChild(avatar);
+        }
+        
+        chatMessages.appendChild(messageContainer);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    // Style markdown content
+    function styleMarkdownContent(messageText) {
+        // Style code blocks
+        messageText.querySelectorAll('pre code').forEach(block => {
+            block.className = 'block bg-gray-100 dark:bg-gray-800 p-2 rounded text-sm overflow-x-auto';
+        });
+        
+        // Style inline code
+        messageText.querySelectorAll('code:not(pre code)').forEach(code => {
+            code.className = 'bg-gray-100 dark:bg-gray-800 px-1 rounded text-sm';
+        });
+        
+        // Style lists
+        messageText.querySelectorAll('ul').forEach(ul => {
+            ul.className = 'list-disc list-inside space-y-1 my-2';
+        });
+        
+        messageText.querySelectorAll('ol').forEach(ol => {
+            ol.className = 'list-decimal list-inside space-y-1 my-2';
+        });
+        
+        // Style paragraphs
+        messageText.querySelectorAll('p').forEach(p => {
+            p.className = 'my-2 leading-relaxed';
+        });
+        
+        // Style headings
+        messageText.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(heading => {
+            heading.className = 'font-semibold my-2';
+        });
+        
+        // Style blockquotes
+        messageText.querySelectorAll('blockquote').forEach(quote => {
+            quote.className = 'border-l-4 border-gray-300 dark:border-gray-600 pl-4 my-2 italic';
+        });
+    }
+});
