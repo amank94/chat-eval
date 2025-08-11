@@ -141,7 +141,7 @@ def health_check():
         'database': db_status,
         'redis': redis_status,
         'timestamp': datetime.utcnow().isoformat(),
-        'version': '2.1.1',  # Force Render redeploy
+        'version': '2.1.2',  # Force Render redeploy - fix UI deployment
         'deployment_id': 'ui-update-' + str(int(datetime.utcnow().timestamp()))
     })
 

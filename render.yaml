@@ -25,4 +25,4 @@ services:
         generateValue: true
     healthCheckPath: /health
     autoDeploy: true
-    # Updated: 2025-08-11 - Force redeploy with latest UI changes
+    # Updated: 2025-08-11 - Force redeploy with UI v2.1.2 - Blueprint deployment fix
