@@ -716,21 +716,24 @@ Explanation: [your explanation]`;
         
         const lowerLabel = label.toLowerCase();
         
-        // Determine styling based on criterion type and label
+        // Determine styling based on criterion type and label with improved colors
         if (criterionType === 'groundedness') {
             if (lowerLabel.includes('grounded') && !lowerLabel.includes('not')) {
                 if (lowerLabel.includes('partially')) {
+                    // Partially Grounded - Amber/Orange
                     iconClass = 'fa-exclamation-triangle text-amber-500';
-                    labelColor = 'text-amber-600 dark:text-amber-400';
+                    labelColor = 'text-amber-700 dark:text-amber-300';
                     bgColor = 'bg-amber-50 dark:bg-amber-900/20';
                 } else {
-                    iconClass = 'fa-check-circle text-green-500';
-                    labelColor = 'text-green-600 dark:text-green-400';
-                    bgColor = 'bg-green-50 dark:bg-green-900/20';
+                    // Fully Grounded - Emerald Green
+                    iconClass = 'fa-check-circle text-emerald-600';
+                    labelColor = 'text-emerald-700 dark:text-emerald-300';
+                    bgColor = 'bg-emerald-50 dark:bg-emerald-900/20';
                 }
             } else {
+                // Not Grounded - Red
                 iconClass = 'fa-times-circle text-red-500';
-                labelColor = 'text-red-600 dark:text-red-400';
+                labelColor = 'text-red-700 dark:text-red-300';
                 bgColor = 'bg-red-50 dark:bg-red-900/20';
             }
         } else if (criterionType === 'factual_accuracy') {
@@ -847,14 +850,20 @@ Explanation: [your explanation]`;
             const { label } = parseEvaluationText(item.evaluation);
             const timeAgo = getTimeAgo(new Date(item.timestamp));
             
-            // Determine label styling
+            // Determine label styling with improved colors
             let labelClass = '';
-            if (label.toLowerCase().includes('grounded') || label.toLowerCase().includes('accurate')) {
-                labelClass = 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-            } else if (label.toLowerCase().includes('partial')) {
-                labelClass = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+            if (label.toLowerCase().includes('grounded') && !label.toLowerCase().includes('partial')) {
+                // Fully Grounded - Emerald Green
+                labelClass = 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300';
+            } else if (label.toLowerCase().includes('partial') || label.toLowerCase().includes('somewhat')) {
+                // Partially Grounded - Amber/Orange  
+                labelClass = 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300';
+            } else if (label.toLowerCase().includes('accurate') || label.toLowerCase().includes('good') || label.toLowerCase().includes('relevant')) {
+                // Other positive labels - Green
+                labelClass = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
             } else {
-                labelClass = 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+                // Not Grounded / Negative - Red
+                labelClass = 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
             }
             
             historyHTML += `
