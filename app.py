@@ -2,13 +2,14 @@ from flask import Flask, render_template, request, jsonify, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_session import Session
 import anthropic
 import os
 from dotenv import load_dotenv
 from pypdf import PdfReader
 import io
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 import redis
 import json
 import uuid
@@ -27,9 +28,21 @@ if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
     app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Session configuration - use filesystem to persist across workers
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_FILE_DIR'] = tempfile.mkdtemp()
+app.config['SESSION_PERMANENT'] = False
+app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_KEY_PREFIX'] = 'chateval:'
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)
+
 # Initialize extensions
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+Session(app)  # Initialize Flask-Session
 
 # Redis configuration (optional, fallback to in-memory if not available)
 try:
@@ -198,10 +211,9 @@ def chat():
         except Exception as e:
             return jsonify({'error': f'Invalid API key: {str(e)}'}), 401
         
-        # Get PDF content from storage using session ID
-        session_id = session.get('session_id', '')
-        pdf_content = get_pdf(session_id)
-        print(f"DEBUG CHAT: Session ID: {session_id}, PDF content length: {len(pdf_content)}")
+        # Get PDF content from session (now handled server-side by Flask-Session)
+        pdf_content = session.get('pdf_content', '')
+        print(f"DEBUG CHAT: PDF content length: {len(pdf_content)}")
         
         messages = []
         if pdf_content:
@@ -368,13 +380,9 @@ def upload_pdf():
         for page in reader.pages:
             text += page.extract_text() + "\n"
         
-        # Store PDF content using Redis/memory storage instead of session (to avoid cookie size limits)
-        session_id = session.get('session_id', '')
-        if session_id:
-            store_pdf(session_id, text[:10000])
-            print(f"DEBUG UPLOAD: Stored PDF for session {session_id}, length: {len(text[:10000])}")
-        else:
-            print(f"DEBUG UPLOAD: No session ID found!")
+        # Store PDF content in session (now handled server-side by Flask-Session)
+        session['pdf_content'] = text[:10000]
+        print(f"DEBUG UPLOAD: Stored PDF in session, length: {len(text[:10000])}")
         session.modified = True
         
         return jsonify({
@@ -415,9 +423,8 @@ def improve_response():
         except Exception as e:
             return jsonify({'error': f'Invalid API key: {str(e)}'}), 401
         
-        # Get PDF content from storage using session ID
-        session_id = session.get('session_id', '')
-        pdf_content = get_pdf(session_id)
+        # Get PDF content from session (now handled server-side by Flask-Session)
+        pdf_content = session.get('pdf_content', '')
         
         # Build improvement prompt based on all evaluations
         if combined_evaluation and len(combined_evaluation) > 0:
