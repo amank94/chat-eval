@@ -1022,6 +1022,48 @@ Explanation: [your explanation]`;
         clearHistoryBtn.addEventListener('click', clearEvaluationHistory);
     }
     
+    // Tab functionality
+    const evalTab = document.getElementById('eval-tab');
+    const promptTab = document.getElementById('prompt-tab');
+    const templatesBtn = document.getElementById('templates-btn');
+    const evaluationDisplay = document.getElementById('evaluation-display');
+    const promptEditor = document.getElementById('prompt-editor');
+    const templatesDropdown = document.getElementById('templates-dropdown');
+    
+    if (evalTab && promptTab && templatesBtn) {
+        evalTab.addEventListener('click', () => {
+            // Switch to evaluation tab
+            evalTab.classList.add('text-blue-600', 'dark:text-blue-400', 'border-b-2', 'border-blue-600', 'dark:border-blue-400');
+            evalTab.classList.remove('text-gray-600', 'dark:text-gray-400');
+            
+            promptTab.classList.add('text-gray-600', 'dark:text-gray-400');
+            promptTab.classList.remove('text-blue-600', 'dark:text-blue-400', 'border-b-2', 'border-blue-600', 'dark:border-blue-400');
+            
+            if (evaluationDisplay) evaluationDisplay.classList.remove('hidden');
+            if (promptEditor) promptEditor.classList.add('hidden');
+            if (templatesDropdown) templatesDropdown.classList.add('hidden');
+        });
+        
+        promptTab.addEventListener('click', () => {
+            // Switch to prompt editor tab
+            promptTab.classList.add('text-blue-600', 'dark:text-blue-400', 'border-b-2', 'border-blue-600', 'dark:border-blue-400');
+            promptTab.classList.remove('text-gray-600', 'dark:text-gray-400');
+            
+            evalTab.classList.add('text-gray-600', 'dark:text-gray-400');
+            evalTab.classList.remove('text-blue-600', 'dark:text-blue-400', 'border-b-2', 'border-blue-600', 'dark:border-blue-400');
+            
+            if (evaluationDisplay) evaluationDisplay.classList.add('hidden');
+            if (promptEditor) promptEditor.classList.remove('hidden');
+            if (templatesDropdown) templatesDropdown.classList.add('hidden');
+        });
+        
+        templatesBtn.addEventListener('click', () => {
+            if (templatesDropdown) {
+                templatesDropdown.classList.toggle('hidden');
+            }
+        });
+    }
+    
     // Load history on page load
     renderEvaluationHistory();
 });

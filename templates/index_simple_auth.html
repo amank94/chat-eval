@@ -221,6 +221,24 @@
                 </div>
             </div>
 
+            <!-- Tabs for Evaluation and Prompt Editor -->
+            <div class="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                <div class="flex">
+                    <button id="eval-tab" class="px-6 py-3 text-sm font-medium text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400">
+                        <i class="fas fa-chart-bar mr-2"></i>
+                        Evaluation
+                    </button>
+                    <button id="prompt-tab" class="px-6 py-3 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                        <i class="fas fa-edit mr-2"></i>
+                        Prompt Editor
+                    </button>
+                    <button id="templates-btn" class="ml-auto px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                        <i class="fas fa-folder-open mr-2"></i>
+                        Templates
+                    </button>
+                </div>
+            </div>
+
             <!-- Evaluation Display Area -->
             <div id="evaluation-display" class="flex-1 overflow-y-auto">
                 <!-- Evaluation History List -->
@@ -242,6 +260,100 @@
                         <i class="fas fa-trash-alt mr-2"></i>
                         Clear All History
                     </button>
+                </div>
+            </div>
+
+            <!-- Prompt Editor Area -->
+            <div id="prompt-editor" class="hidden flex-1 overflow-y-auto">
+                <div class="p-6">
+                    <!-- Prompt Templates Dropdown -->
+                    <div id="templates-dropdown" class="hidden absolute right-6 top-16 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+                        <div class="p-2">
+                            <button class="template-btn w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded" data-template="groundedness">
+                                <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                                Groundedness (Default)
+                            </button>
+                            <button class="template-btn w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded" data-template="factual">
+                                <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                                Factual Accuracy
+                            </button>
+                            <button class="template-btn w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded" data-template="completeness">
+                                <i class="fas fa-tasks text-purple-500 mr-2"></i>
+                                Completeness
+                            </button>
+                            <button class="template-btn w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded" data-template="relevance">
+                                <i class="fas fa-bullseye text-orange-500 mr-2"></i>
+                                Relevance
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Editor Header -->
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                            <i class="fas fa-code mr-2 text-blue-600 dark:text-blue-400"></i>
+                            Evaluation Prompt
+                        </h3>
+                        <div class="flex items-center space-x-2">
+                            <button id="save-prompt" class="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700">
+                                <i class="fas fa-save mr-1"></i>
+                                Save
+                            </button>
+                            <button id="reset-prompt" class="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700">
+                                <i class="fas fa-undo mr-1"></i>
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Code Editor -->
+                    <div class="relative">
+                        <textarea 
+                            id="prompt-textarea" 
+                            class="w-full h-96 p-4 font-mono text-sm bg-gray-900 text-gray-100 rounded-lg border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter your evaluation prompt here..."
+                        ></textarea>
+                        <div class="absolute top-2 right-2 text-xs text-gray-500">
+                            <span id="char-count">0</span> characters
+                        </div>
+                    </div>
+
+                    <!-- Prompt Variables Info -->
+                    <div class="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <h4 class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Available Variables
+                        </h4>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="flex items-center">
+                                <code class="bg-white dark:bg-gray-800 px-2 py-1 rounded mr-2">{document_content}</code>
+                                <span class="text-gray-600 dark:text-gray-400">PDF content</span>
+                            </div>
+                            <div class="flex items-center">
+                                <code class="bg-white dark:bg-gray-800 px-2 py-1 rounded mr-2">{question}</code>
+                                <span class="text-gray-600 dark:text-gray-400">User's question</span>
+                            </div>
+                            <div class="flex items-center">
+                                <code class="bg-white dark:bg-gray-800 px-2 py-1 rounded mr-2">{response}</code>
+                                <span class="text-gray-600 dark:text-gray-400">AI's response</span>
+                            </div>
+                            <div class="flex items-center">
+                                <code class="bg-white dark:bg-gray-800 px-2 py-1 rounded mr-2">{timestamp}</code>
+                                <span class="text-gray-600 dark:text-gray-400">Current time</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Version History -->
+                    <div class="mt-4">
+                        <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                            <i class="fas fa-history mr-1"></i>
+                            Version History
+                        </h4>
+                        <div id="version-history" class="space-y-2 max-h-32 overflow-y-auto">
+                            <!-- Version history items will be added here -->
+                        </div>
+                    </div>
                 </div>
             </div>
 
