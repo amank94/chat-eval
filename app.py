@@ -12,6 +12,8 @@ from datetime import datetime
 import redis
 import json
 import uuid
+import hashlib
+import tempfile
 
 load_dotenv()
 
@@ -38,7 +40,9 @@ except:
     redis_client = None
     print("Redis not available, using in-memory storage")
 
-# PDF content will be stored in user sessions instead of global variable
+# PDF storage - use temp files to avoid session size limits
+# Dictionary to store PDF content with session-based keys
+pdf_storage = {}
 
 # Database Models (for future use)
 class ChatSession(db.Model):
@@ -89,6 +93,14 @@ def index():
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
         session['evaluation_history'] = []
+    
+    # Clean up old PDF storage entries (keep only last 100 sessions)
+    if len(pdf_storage) > 100:
+        # Remove oldest entries
+        keys_to_remove = list(pdf_storage.keys())[:-100]
+        for key in keys_to_remove:
+            pdf_storage.pop(key, None)
+    
     return render_template('index_simple_auth.html')
 
 @app.route('/validate_api_key', methods=['POST'])
@@ -162,8 +174,9 @@ def chat():
         except Exception as e:
             return jsonify({'error': f'Invalid API key: {str(e)}'}), 401
         
-        # Get PDF content from session
-        pdf_content = session.get('pdf_content', '')
+        # Get PDF content from in-memory storage using session ID
+        session_id = session.get('session_id', '')
+        pdf_content = pdf_storage.get(session_id, '')
         
         messages = []
         if pdf_content:
@@ -329,8 +342,10 @@ def upload_pdf():
         for page in reader.pages:
             text += page.extract_text() + "\n"
         
-        # Store PDF content in session instead of global variable
-        session['pdf_content'] = text[:10000]
+        # Store PDF content in memory storage instead of session (to avoid cookie size limits)
+        session_id = session.get('session_id', '')
+        if session_id:
+            pdf_storage[session_id] = text[:10000]
         session.modified = True
         
         return jsonify({
@@ -371,8 +386,9 @@ def improve_response():
         except Exception as e:
             return jsonify({'error': f'Invalid API key: {str(e)}'}), 401
         
-        # Get PDF content from session
-        pdf_content = session.get('pdf_content', '')
+        # Get PDF content from in-memory storage using session ID
+        session_id = session.get('session_id', '')
+        pdf_content = pdf_storage.get(session_id, '')
         
         # Build improvement prompt based on all evaluations
         if combined_evaluation and len(combined_evaluation) > 0:
