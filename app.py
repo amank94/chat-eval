@@ -5,6 +5,7 @@ from flask_migrate import Migrate
 from flask_session import Session
 import anthropic
 import os
+import shutil
 from dotenv import load_dotenv
 from pypdf import PdfReader
 import io
@@ -28,9 +29,12 @@ if app.config['SQLALCHEMY_DATABASE_URI'].startswith('postgres://'):
     app.config['SQLALCHEMY_DATABASE_URI'] = app.config['SQLALCHEMY_DATABASE_URI'].replace('postgres://', 'postgresql://', 1)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Session configuration - use filesystem to persist across workers
+# Session configuration - use filesystem with proper isolation
+session_dir = os.path.join(tempfile.gettempdir(), 'chateval_sessions')
+os.makedirs(session_dir, exist_ok=True)
 app.config['SESSION_TYPE'] = 'filesystem'
-app.config['SESSION_FILE_DIR'] = tempfile.mkdtemp()
+app.config['SESSION_FILE_DIR'] = session_dir
+app.config['SESSION_FILE_THRESHOLD'] = 100  # Max number of sessions before cleanup
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_USE_SIGNER'] = True
 app.config['SESSION_KEY_PREFIX'] = 'chateval:'
@@ -131,12 +135,24 @@ def index():
         session['session_id'] = str(uuid.uuid4())
         session['evaluation_history'] = []
     
-    # Clean up old PDF storage entries (keep only last 100 sessions)
-    if len(pdf_storage) > 100:
-        # Remove oldest entries
-        keys_to_remove = list(pdf_storage.keys())[:-100]
-        for key in keys_to_remove:
-            pdf_storage.pop(key, None)
+    # Clean up old session files periodically (every 100th request)
+    if os.path.exists(session_dir):
+        try:
+            import random
+            if random.randint(1, 100) == 1:  # 1% chance to clean
+                now = datetime.now()
+                for filename in os.listdir(session_dir):
+                    filepath = os.path.join(session_dir, filename)
+                    # Remove files older than 2 hours
+                    if os.path.isfile(filepath):
+                        file_age = now - datetime.fromtimestamp(os.path.getmtime(filepath))
+                        if file_age > timedelta(hours=2):
+                            try:
+                                os.remove(filepath)
+                            except:
+                                pass
+        except:
+            pass
     
     return render_template('index_simple_auth.html')
 
